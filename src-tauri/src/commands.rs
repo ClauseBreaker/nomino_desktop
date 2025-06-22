@@ -2117,7 +2117,7 @@ fn get_files_by_mode(folder_path: &Path, config: &ExcelRenameConfig) -> Result<V
             }
         });
         
-        // Sort numerically for digits mode
+        // Sort numerically for digits mode with Azerbaijani alphabet support
         files.sort_by(|a, b| {
             let a_name = a.file_stem().unwrap_or_default().to_string_lossy();
             let b_name = b.file_stem().unwrap_or_default().to_string_lossy();
@@ -2125,15 +2125,15 @@ fn get_files_by_mode(folder_path: &Path, config: &ExcelRenameConfig) -> Result<V
             if let (Ok(a_num), Ok(b_num)) = (a_name.parse::<u32>(), b_name.parse::<u32>()) {
                 a_num.cmp(&b_num)
             } else {
-                windows_natural_sort(&a_name, &b_name)
+                natural_sort_compare(&a_name, &b_name)
             }
         });
     } else {
-        // Original mode - use Windows-like natural sorting
+        // Original mode - use Azerbaijani-aware natural sorting
         files.sort_by(|a, b| {
             let a_name = a.file_name().unwrap_or_default().to_string_lossy();
             let b_name = b.file_name().unwrap_or_default().to_string_lossy();
-            windows_natural_sort(&a_name, &b_name)
+            natural_sort_compare(&a_name, &b_name)
         });
         
         // Find start index if start_file_name is specified
