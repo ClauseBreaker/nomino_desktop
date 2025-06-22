@@ -624,7 +624,7 @@ fn read_excel_names(excel_path: &str, start_row: u32, column: &str) -> Result<Ve
     let mut workbook: Xlsx<_> = open_workbook(excel_path)
         .map_err(|e| format!("Failed to open Excel file: {}", e))?;
     
-    let worksheet_name = workbook.worksheet_names().first()
+    let worksheet_name = workbook.sheet_names().first()
         .ok_or("No worksheets found in Excel file")?
         .clone();
     
@@ -637,7 +637,7 @@ fn read_excel_names(excel_path: &str, start_row: u32, column: &str) -> Result<Ve
     
     // Read from start_row (1-indexed) to end of data
     for row in (start_row - 1)..range.height() as u32 {
-        if let Some(cell) = range.get_value((row as usize, column_index)) {
+        if let Some(cell) = range.get((row as usize, column_index)) {
             match cell {
                 DataType::String(s) => {
                     let trimmed = s.trim();
