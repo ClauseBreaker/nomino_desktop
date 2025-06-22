@@ -327,6 +327,77 @@ pub async fn get_folders_with_sorting(
     Ok(folders)
 }
 
+/// Retrieves files with specified sorting method
+#[command]
+pub async fn get_files_with_sorting(
+    path: String,
+    sort_order: String,
+) -> Result<Vec<FileInfo>, String> {
+    let dir_path = Path::new(&path);
+    
+    if !dir_path.exists() {
+        return Err("Qovluq mövcud deyil".to_string());
+    }
+
+    let mut files = Vec::new();
+    
+    // Collect all file entries
+    match fs::read_dir(dir_path) {
+        Ok(entries) => {
+            for entry in entries {
+                if let Ok(entry) = entry {
+                    let path = entry.path();
+                    let metadata = entry.metadata().map_err(|e| e.to_string())?;
+                    
+                    if metadata.is_file() {
+                        let file_info = FileInfo {
+                            name: entry.file_name().to_string_lossy().to_string(),
+                            path: path.to_string_lossy().to_string(),
+                            is_directory: false,
+                            size: metadata.len(),
+                            extension: path.extension().map(|ext| ext.to_string_lossy().to_string()),
+                        };
+                        
+                        files.push(file_info);
+                    }
+                }
+            }
+        }
+        Err(e) => return Err(e.to_string()),
+    }
+    
+    // Apply sorting based on user selection
+    match sort_order.as_str() {
+        "name" => {
+            files.sort_by(|a, b| natural_sort_compare(&a.name, &b.name));
+        }
+        "date" => {
+            files.sort_by(|a, b| {
+                let a_metadata = std::fs::metadata(&a.path).ok();
+                let b_metadata = std::fs::metadata(&b.path).ok();
+                
+                match (a_metadata, b_metadata) {
+                    (Some(a_meta), Some(b_meta)) => {
+                        let a_time = a_meta.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+                        let b_time = b_meta.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+                        b_time.cmp(&a_time) // Newest first
+                    }
+                    _ => std::cmp::Ordering::Equal,
+                }
+            });
+        }
+        "size" => {
+            files.sort_by(|a, b| b.size.cmp(&a.size)); // Largest first
+        }
+        _ => {
+            // Default: natural sort (like Windows Explorer)
+            files.sort_by(|a, b| natural_sort_compare(&a.name, &b.name));
+        }
+    }
+    
+    Ok(files)
+}
+
 // ================================================================================================
 // Renaming Operations
 // ================================================================================================
@@ -549,6 +620,142 @@ pub async fn rename_folders_from_excel(
     // Send completion
     if !state.should_stop() {
         emit_progress(&window, folders.len(), folders.len(), "Tamamlandı!", "Bütün qovluqlar işləndi");
+    }
+    
+    state.reset();
+    Ok(results)
+}
+
+/// Main file renaming operation using Excel data with process control
+#[command]
+pub async fn rename_files_from_excel(
+    window: Window,
+    source_path: String,
+    destination_path: String,
+    excel_path: String,
+    start_row: u32,
+    column: String,
+    _sort_order: String,
+    files: Vec<String>,
+    state: State<'_, ProcessState>,
+) -> Result<Vec<String>, String> {
+    let source_dir = Path::new(&source_path);
+    let dest_dir = Path::new(&destination_path);
+    
+    // Validate directories
+    if !source_dir.exists() {
+        return Err("Əsas qovluq mövcud deyil".to_string());
+    }
+    
+    if !dest_dir.exists() {
+        return Err("Təyinat qovluq mövcud deyil".to_string());
+    }
+    
+    // Start the process
+    state.start();
+    
+    // Send initial progress
+    emit_progress(&window, 0, files.len(), "Excel faylı oxunur...", "Excel-dən adlar yüklənir");
+    
+    // Read names from Excel file
+    let excel_names = match read_excel_names(&excel_path, start_row, &column) {
+        Ok(names) => names,
+        Err(e) => {
+            state.reset();
+            return Err(e);
+        }
+    };
+    
+    if excel_names.is_empty() {
+        state.reset();
+        return Err("Excel faylında heç bir ad tapılmadı".to_string());
+    }
+    
+    emit_progress(&window, 0, files.len(), "Proses başlanır...", &format!("{} fayl işlənəcək", files.len()));
+    
+    let mut results = Vec::new();
+    
+    // Process each file with corresponding Excel name
+    for (index, file_name) in files.iter().enumerate() {
+        // Check if process should stop
+        if state.should_stop() {
+            emit_progress(&window, index, files.len(), "Dayandırıldı", "Proses dayandırıldı");
+            state.reset();
+            return Ok(results);
+        }
+        
+        // Handle pause
+        while state.is_paused() && !state.should_stop() {
+            emit_progress(&window, index, files.len(), "Fasilə verildi", "Proses fasilədədir");
+            sleep(Duration::from_millis(100)).await;
+        }
+        
+        // Check again after pause
+        if state.should_stop() {
+            emit_progress(&window, index, files.len(), "Dayandırıldı", "Proses dayandırıldı");
+            state.reset();
+            return Ok(results);
+        }
+        
+        let current = index + 1;
+        state.current_index.store(current, Ordering::Relaxed);
+        
+        emit_progress(&window, current, files.len(), &format!("İşlənən fayl: {}", file_name), &format!("{}/{} fayl", current, files.len()));
+        
+        let old_file_path = source_dir.join(file_name);
+        
+        if !old_file_path.exists() {
+            let error_msg = format!("❌ Xəta: '{}' faylı tapılmadı", file_name);
+            results.push(error_msg.clone());
+            
+            emit_process_result(&window, false, &error_msg, file_name, "");
+            continue;
+        }
+        
+        // Get new name from Excel
+        let new_name = if index < excel_names.len() {
+            &excel_names[index]
+        } else {
+            let error_msg = format!("❌ Xəta: '{}' faylı üçün Excel adı yoxdur (sətir {})", file_name, start_row + index as u32);
+            results.push(error_msg.clone());
+            
+            emit_process_result(&window, false, &error_msg, file_name, "");
+            continue;
+        };
+        
+        // Get file extension
+        let extension = old_file_path.extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| format!(".{}", ext))
+            .unwrap_or_default();
+        
+        // Create safe filename with extension
+        let safe_new_name = format!("{}{}", sanitize_filename(new_name), extension);
+        let new_file_path = dest_dir.join(&safe_new_name);
+        
+        // Add delay to show progress
+        sleep(Duration::from_millis(500)).await;
+        
+        // Move and rename file
+        match move_file(&old_file_path, &new_file_path) {
+            Ok(_) => {
+                let success_msg = format!("✅ Uğur: '{}' → '{}'", file_name, safe_new_name);
+                results.push(success_msg.clone());
+                
+                emit_process_result(&window, true, &success_msg, file_name, &safe_new_name);
+            }
+            Err(e) => {
+                let error_msg = format!("❌ Xəta: '{}' köçürülə bilmədi: {}", file_name, e);
+                results.push(error_msg.clone());
+                
+                emit_process_result(&window, false, &error_msg, file_name, &safe_new_name);
+            }
+        }
+    }
+    
+    // Send completion
+    if !state.should_stop() {
+        emit_progress(&window, files.len(), files.len(), "Tamamlandı!", "Bütün fayllar işləndi");
     }
     
     state.reset();
@@ -855,5 +1062,27 @@ fn copy_dir_recursive(source: &Path, destination: &Path) -> Result<(), String> {
         }
     }
     
+    Ok(())
+}
+
+/// Moves a file from source to destination
+fn move_file(source: &Path, destination: &Path) -> Result<(), String> {
+    // Try direct rename first (fastest if on same filesystem)
+    match fs::rename(source, destination) {
+        Ok(_) => Ok(()),
+        Err(_) => {
+            // If rename fails, copy and delete
+            copy_file(source, destination)?;
+            fs::remove_file(source)
+                .map_err(|e| format!("Faylı silmək mümkün olmadı: {}", e))?;
+            Ok(())
+        }
+    }
+}
+
+/// Copies a file from source to destination
+fn copy_file(source: &Path, destination: &Path) -> Result<(), String> {
+    fs::copy(source, destination)
+        .map_err(|e| format!("Faylı kopyalamaq mümkün olmadı: {}", e))?;
     Ok(())
 } 

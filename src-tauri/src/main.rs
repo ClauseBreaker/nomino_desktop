@@ -27,10 +27,12 @@ use commands::{
     get_files_in_directory,
     get_folders_in_directory, 
     get_folders_with_sorting,
-    read_excel_column,
+    get_files_with_sorting,
     rename_files,
     rename_folders,
     rename_folders_from_excel,
+    rename_files_from_excel,
+    read_excel_column,
     create_pdf,
     pause_process,
     resume_process,
@@ -56,6 +58,7 @@ fn main() {
             get_files_in_directory,
             get_folders_in_directory,
             get_folders_with_sorting,
+            get_files_with_sorting,
             
             // Excel integration
             read_excel_column,
@@ -64,6 +67,7 @@ fn main() {
             rename_files,
             rename_folders,
             rename_folders_from_excel,
+            rename_files_from_excel,
             
             // Document operations
             create_pdf,

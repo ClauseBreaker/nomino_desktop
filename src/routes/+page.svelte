@@ -434,7 +434,7 @@
 								type="number"
 								min="1"
 								disabled={isProcessing}
-								class="input-field w-full"
+								class="input-field w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
 								placeholder="1"
 							/>
 						</div>

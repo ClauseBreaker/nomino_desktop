@@ -3,43 +3,37 @@
 	import { 
 		FolderEdit, 
 		FileText, 
-		Folder, 
 		FileSpreadsheet,
 		Settings 
 	} from 'lucide-svelte';
 	
 	export let currentPath = '';
 
-	const menuItems = [
+	// Make menuItems reactive to currentPath changes
+	$: menuItems = [
 		{ 
 			path: '/', 
 			icon: FolderEdit, 
 			label: 'Qovluq Adlandırıcı',
-			active: currentPath === '/' 
+			active: currentPath === '/'
 		},
 		{ 
 			path: '/files', 
 			icon: FileText, 
-			label: 'Files',
-			active: currentPath.startsWith('/files') 
-		},
-		{ 
-			path: '/folders', 
-			icon: Folder, 
-			label: 'Folders',
-			active: currentPath.startsWith('/folders') 
+			label: 'Fayl Adlandırıcı',
+			active: currentPath === '/files'
 		},
 		{ 
 			path: '/pdf', 
 			icon: FileSpreadsheet, 
 			label: 'PDF',
-			active: currentPath.startsWith('/pdf') 
+			active: currentPath === '/pdf'
 		},
 		{ 
 			path: '/settings', 
 			icon: Settings, 
 			label: 'Settings',
-			active: currentPath.startsWith('/settings') 
+			active: currentPath === '/settings'
 		}
 	];
 
