@@ -24,6 +24,7 @@ mod commands;
 use commands::{
     ProcessState,
     greet,
+    debug_folder_structure,
     get_files_in_directory,
     get_folders_in_directory, 
     get_folders_with_sorting,
@@ -55,6 +56,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             // Basic utilities
             greet,
+            debug_folder_structure,
             
             // File system operations
             get_files_in_directory,

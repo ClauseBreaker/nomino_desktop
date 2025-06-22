@@ -23,8 +23,8 @@
 
 	// State variables
 	let mainFolderPath = '';
-	let subfolderName = 'images';
-	let deleteFiles = 'desktop.ini, thumbs.db, .DS_Store';
+	let subfolderName = '';
+	let deleteFiles = '';
 	let subfolders: any[] = [];
 	let isProcessing = false;
 	let isPaused = false;
@@ -92,7 +92,7 @@
 			if (selected && selected !== null && selected !== '') {
 				mainFolderPath = Array.isArray(selected) ? selected[0] : selected;
 				console.log('Selected folder:', mainFolderPath);
-				await loadSubfolders();
+				// loadSubfolders will be called automatically by reactive statement
 			}
 		} catch (error) {
 			console.error('Dialog error:', error);
@@ -104,8 +104,9 @@
 		if (!mainFolderPath) return;
 		
 		try {
-			const result = await invoke('get_pdf_subfolders', { 
-				mainFolder: mainFolderPath
+			// Always just get all folders, don't filter by subfolder name
+			const result = await invoke('get_folders_in_directory', { 
+				path: mainFolderPath
 			});
 			subfolders = result as any[];
 		} catch (error) {
@@ -115,8 +116,13 @@
 	}
 
 	async function startPdfCreation() {
-		if (!mainFolderPath || !subfolderName.trim()) {
-			alert('Bütün sahələri doldurun');
+		if (!mainFolderPath) {
+			alert('Əsas qovluğu seçin');
+			return;
+		}
+		
+		if (!subfolderName.trim()) {
+			alert('Şəkil qovluğunun adını yazın');
 			return;
 		}
 
@@ -131,9 +137,9 @@
 			const deleteFilesList = deleteFiles.split(',').map(f => f.trim()).filter(f => f.length > 0);
 			
 			const config = {
-				mainFolder: mainFolderPath,
-				subfolderName: subfolderName.trim(),
-				deleteFiles: deleteFilesList
+				main_folder: mainFolderPath,
+				subfolder_name: subfolderName.trim(),
+				delete_files: deleteFilesList
 			};
 
 			const result = await invoke('create_pdf_from_images', { config });
@@ -190,8 +196,8 @@
 	function resetProcess() {
 		// Reset all selections and data
 		mainFolderPath = '';
-		subfolderName = 'images';
-		deleteFiles = 'desktop.ini, thumbs.db, .DS_Store';
+		subfolderName = '';
+		deleteFiles = '';
 		subfolders = [];
 		isProcessing = false;
 		isPaused = false;
@@ -210,6 +216,29 @@
 
 	function getFileName(path: string) {
 		return path.split(/[\\/]/).pop() || path;
+	}
+
+	async function debugFolderStructure() {
+		if (!mainFolderPath || !subfolderName.trim()) return;
+		
+		try {
+			const result = await invoke('debug_folder_structure', {
+				main_folder: mainFolderPath,
+				subfolder_name: subfolderName.trim()
+			});
+			
+			// Show debug info in console and alert
+			console.log('Debug info:', result);
+			alert(`Debug məlumatları:\n\n${result}`);
+		} catch (error) {
+			console.error('Debug error:', error);
+			alert(`Debug xətası: ${error}`);
+		}
+	}
+
+	// Watch for changes in main folder and reload subfolders
+	$: if (mainFolderPath) {
+		loadSubfolders();
 	}
 </script>
 
@@ -248,6 +277,16 @@
 					<RotateCcw size={16} />
 					<span>Sıfırla</span>
 				</button>
+				{#if mainFolderPath && subfolderName.trim()}
+					<button 
+						on:click={debugFolderStructure}
+						class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg flex items-center space-x-2 transition-colors text-sm"
+						title="Diaqnostika"
+					>
+						<span>🔍</span>
+						<span>Debug</span>
+					</button>
+				{/if}
 			</div>
 		{/if}
 	</div>
@@ -296,7 +335,7 @@
 						type="text"
 						disabled={isProcessing}
 						class="input-field w-full"
-						placeholder="images"
+						placeholder="Şəkil qovluğunun adını yazın..."
 					/>
 				</div>
 
@@ -310,7 +349,7 @@
 						type="text"
 						disabled={isProcessing}
 						class="input-field w-full"
-						placeholder="desktop.ini, thumbs.db, .DS_Store"
+						placeholder="Silinəcək faylları yazın (məcburi deyil)..."
 					/>
 				</div>
 			</div>
@@ -329,11 +368,8 @@
 						<div class="bg-dark-secondary rounded-lg p-3 flex items-center space-x-2">
 							<span class="text-text-muted text-sm">{index + 1}.</span>
 							<div class="flex items-center space-x-2 flex-1">
-								<FileImage size={16} class={subfolder.size > 0 ? 'text-accent-green' : 'text-text-muted'} />
+								<FileImage size={16} class="text-accent-cyan" />
 								<span class="text-text-primary text-sm truncate">{subfolder.name}</span>
-								{#if subfolder.size > 0}
-									<span class="text-accent-green text-xs">✓</span>
-								{/if}
 							</div>
 						</div>
 					{/each}
@@ -356,7 +392,7 @@
 				{#if !isProcessing}
 					<button
 						on:click={startPdfCreation}
-						disabled={!mainFolderPath || !subfolderName.trim() || subfolders.length === 0}
+						disabled={!mainFolderPath || !subfolderName.trim()}
 						class="btn-primary flex items-center space-x-2 disabled:opacity-50"
 					>
 						<Play size={16} />

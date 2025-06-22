@@ -173,6 +173,81 @@ pub fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
+/// Debug command to check folder structure
+#[command]
+pub async fn debug_folder_structure(main_folder: String, subfolder_name: String) -> Result<String, String> {
+    let main_path = Path::new(&main_folder);
+    
+    if !main_path.exists() {
+        return Err("Qovluq mövcud deyil".to_string());
+    }
+
+    let mut debug_info = String::new();
+    debug_info.push_str(&format!("🔍 Checking main folder: {}\n", main_folder));
+    debug_info.push_str(&format!("📁 Looking for subfolder: '{}'\n\n", subfolder_name));
+    
+    match fs::read_dir(main_path) {
+        Ok(entries) => {
+            let mut folder_count = 0;
+            for entry in entries {
+                if let Ok(entry) = entry {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        folder_count += 1;
+                        let folder_name = entry.file_name().to_string_lossy().to_string();
+                        debug_info.push_str(&format!("📂 Folder #{}: '{}'\n", folder_count, folder_name));
+                        
+                        // Check if target subfolder exists
+                        let subfolder_path = path.join(&subfolder_name);
+                        if subfolder_path.exists() {
+                            debug_info.push_str(&format!("   ✅ Contains '{}' subfolder\n", subfolder_name));
+                            
+                            // Check for images
+                            match fs::read_dir(&subfolder_path) {
+                                Ok(sub_entries) => {
+                                    let mut image_count = 0;
+                                    for sub_entry in sub_entries {
+                                        if let Ok(sub_entry) = sub_entry {
+                                            let sub_path = sub_entry.path();
+                                            if sub_path.is_file() {
+                                                let file_name = sub_entry.file_name().to_string_lossy().to_string();
+                                                if let Some(extension) = sub_path.extension() {
+                                                    let ext = extension.to_string_lossy().to_lowercase();
+                                                    if is_image_extension(&ext) {
+                                                        image_count += 1;
+                                                        debug_info.push_str(&format!("      🖼️  Image: {}\n", file_name));
+                                                    } else {
+                                                        debug_info.push_str(&format!("      📄 File: {}\n", file_name));
+                                                    }
+                                                } else {
+                                                    debug_info.push_str(&format!("      📄 File: {}\n", file_name));
+                                                }
+                                            }
+                                        }
+                                    }
+                                    debug_info.push_str(&format!("   📊 Total images found: {}\n", image_count));
+                                }
+                                Err(e) => {
+                                    debug_info.push_str(&format!("   ❌ Error reading subfolder: {}\n", e));
+                                }
+                            }
+                        } else {
+                            debug_info.push_str(&format!("   ❌ No '{}' subfolder found\n", subfolder_name));
+                        }
+                        debug_info.push_str("\n");
+                    }
+                }
+            }
+            debug_info.push_str(&format!("📊 Total folders found: {}\n", folder_count));
+        }
+        Err(e) => {
+            debug_info.push_str(&format!("❌ Error reading main folder: {}\n", e));
+        }
+    }
+    
+    Ok(debug_info)
+}
+
 // ================================================================================================
 // PDF Creation Commands
 // ================================================================================================
@@ -231,6 +306,9 @@ pub async fn create_pdf_from_images(
         }
     }
 
+    // Sort subfolders naturally (1, 2, 3... not 1, 10, 11, 2...)
+    subfolders.sort_by(|a, b| natural_sort_compare(a, b));
+
     if subfolders.is_empty() {
         state.reset();
         return Err("Alt qovluqlar tapılmadı".to_string());
@@ -238,18 +316,17 @@ pub async fn create_pdf_from_images(
 
     let total_folders = subfolders.len();
 
-    // Process each subfolder
+    // Process each subfolder - WITH DETAILED PROGRESS TRACKING
     for (index, folder_name) in subfolders.iter().enumerate() {
-        // Check if process should stop
+        // Check for stop signal every folder
         if state.should_stop() {
             break;
         }
 
-        // Handle pause
+        // Handle pause every folder but with quick check
         while state.is_paused() && !state.should_stop() {
-            sleep(Duration::from_millis(100)).await;
+            sleep(Duration::from_millis(50)).await;
         }
-
         if state.should_stop() {
             break;
         }
@@ -257,7 +334,7 @@ pub async fn create_pdf_from_images(
         let folder_path = main_folder.join(folder_name);
         let subfolder_path = folder_path.join(&config.subfolder_name);
 
-        // Emit progress
+        // EMIT PROGRESS FOR EVERY FOLDER - SMOOTH PROGRESS
         emit_progress(
             &window,
             index + 1,
@@ -267,9 +344,13 @@ pub async fn create_pdf_from_images(
         );
 
         let result = if subfolder_path.exists() && subfolder_path.is_dir() {
+            // Emit start of folder processing
+            emit_process_result(&window, true, &format!("🔄 Başlanır: {}", folder_name), folder_name, "");
+            
             match process_folder_for_pdf(&folder_path, &subfolder_path, &config.subfolder_name, &config.delete_files).await {
                 Ok(images_count) => {
-                    emit_process_result(&window, true, &format!("PDF yaradıldı: {}_picture.pdf", folder_name), folder_name, "");
+                    // Always emit success results for visibility
+                    emit_process_result(&window, true, &format!("✅ PDF yaradıldı: {}_picture.pdf ({} şəkil)", folder_name, images_count), folder_name, "");
                     PdfResult {
                         success: true,
                         folder_name: folder_name.clone(),
@@ -279,7 +360,8 @@ pub async fn create_pdf_from_images(
                     }
                 }
                 Err(e) => {
-                    emit_process_result(&window, false, &format!("Xəta: {}", e), folder_name, "");
+                    // Always emit errors for full visibility
+                    emit_process_result(&window, false, &format!("❌ Xəta: {}", e), folder_name, "");
                     PdfResult {
                         success: false,
                         folder_name: folder_name.clone(),
@@ -290,6 +372,8 @@ pub async fn create_pdf_from_images(
                 }
             }
         } else {
+            // Emit skip message
+            emit_process_result(&window, false, &format!("⏭️ Atlandı: '{}' alt qovluğu tapılmadı", config.subfolder_name), folder_name, "");
             PdfResult {
                 success: false,
                 folder_name: folder_name.clone(),
@@ -301,13 +385,16 @@ pub async fn create_pdf_from_images(
 
         results.push(result);
 
-        // Small delay for UI updates
-        sleep(Duration::from_millis(50)).await;
+        // Small yield for UI responsiveness but keep speed
+        tokio::task::yield_now().await;
     }
 
-    // Clean up empty directories
-    if let Err(e) = remove_empty_directories(main_folder) {
-        eprintln!("Boş qovluqları silmə xətası: {}", e);
+    // Clean up empty directories aggressively
+    for _ in 0..3 {  // Run multiple times to catch nested empty folders
+        if let Err(e) = remove_empty_directories(main_folder) {
+            eprintln!("Boş qovluqları silmə xətası: {}", e);
+            break;
+        }
     }
 
     state.reset();
@@ -316,7 +403,7 @@ pub async fn create_pdf_from_images(
 
 /// Gets list of subfolders in the main directory for PDF processing
 #[command]
-pub async fn get_pdf_subfolders(main_folder: String) -> Result<Vec<FileInfo>, String> {
+pub async fn get_pdf_subfolders(main_folder: String, subfolder_name: String) -> Result<Vec<FileInfo>, String> {
     let main_path = Path::new(&main_folder);
     
     if !main_path.exists() {
@@ -324,6 +411,9 @@ pub async fn get_pdf_subfolders(main_folder: String) -> Result<Vec<FileInfo>, St
     }
 
     let mut subfolders = Vec::new();
+    
+    println!("Checking main folder: {}", main_folder);
+    println!("Looking for subfolder: {}", subfolder_name);
     
     match fs::read_dir(main_path) {
         Ok(entries) => {
@@ -333,13 +423,22 @@ pub async fn get_pdf_subfolders(main_folder: String) -> Result<Vec<FileInfo>, St
                     let metadata = entry.metadata().map_err(|e| e.to_string())?;
                     
                     if metadata.is_dir() {
-                        // Check if this subfolder contains image subfolder
-                        let subfolder_path = path.join("images"); // Default check
-                        let has_images = subfolder_path.exists() && 
-                            has_image_files(&subfolder_path).unwrap_or(false);
+                        let folder_name = entry.file_name().to_string_lossy().to_string();
+                        
+                        // Check if this subfolder contains the specified image subfolder
+                        let subfolder_path = path.join(&subfolder_name);
+                        let subfolder_exists = subfolder_path.exists();
+                        let has_images = if subfolder_exists {
+                            has_image_files(&subfolder_path).unwrap_or(false)
+                        } else {
+                            false
+                        };
+                        
+                        println!("Folder: {} | Subfolder exists: {} | Has images: {}", 
+                                folder_name, subfolder_exists, has_images);
                         
                         let file_info = FileInfo {
-                            name: entry.file_name().to_string_lossy().to_string(),
+                            name: folder_name,
                             path: path.to_string_lossy().to_string(),
                             is_directory: true,
                             size: if has_images { 1 } else { 0 }, // Use size field to indicate if has images
@@ -354,6 +453,8 @@ pub async fn get_pdf_subfolders(main_folder: String) -> Result<Vec<FileInfo>, St
         Err(e) => return Err(e.to_string()),
     }
     
+    println!("Found {} subfolders", subfolders.len());
+    
     // Sort alphabetically
     subfolders.sort_by(|a, b| natural_sort_compare(&a.name, &b.name));
     
@@ -364,7 +465,7 @@ pub async fn get_pdf_subfolders(main_folder: String) -> Result<Vec<FileInfo>, St
 // File System Operations
 // ================================================================================================
 
-/// Retrieves all files in a specified directory
+/// Retrieves all files in a specified directory WITH NATURAL SORTING
 #[command]
 pub async fn get_files_in_directory(path: String) -> Result<Vec<FileInfo>, String> {
     let dir_path = Path::new(&path);
@@ -397,10 +498,13 @@ pub async fn get_files_in_directory(path: String) -> Result<Vec<FileInfo>, Strin
         Err(e) => return Err(e.to_string()),
     }
     
+    // ДОБАВЛЕНА НАТУРАЛЬНАЯ СОРТИРОВКА
+    files.sort_by(|a, b| natural_sort_compare(&a.name, &b.name));
+    
     Ok(files)
 }
 
-/// Retrieves all folders in a specified directory without sorting
+/// Retrieves all folders in a specified directory WITH NATURAL SORTING
 #[command]
 pub async fn get_folders_in_directory(path: String) -> Result<Vec<FileInfo>, String> {
     let dir_path = Path::new(&path);
@@ -434,6 +538,9 @@ pub async fn get_folders_in_directory(path: String) -> Result<Vec<FileInfo>, Str
         }
         Err(e) => return Err(e.to_string()),
     }
+    
+    // ДОБАВЛЕНА НАТУРАЛЬНАЯ СОРТИРОВКА
+    folders.sort_by(|a, b| natural_sort_compare(&a.name, &b.name));
     
     Ok(folders)
 }
@@ -1055,48 +1162,85 @@ fn windows_logical_compare(a: &str, b: &str) -> std::cmp::Ordering {
     }
 }
 
-/// Custom logical sort with Azerbaijani alphabet support
+/// Custom logical sort with proper numeric sorting - COMPLETELY REWRITTEN
 fn custom_logical_sort(a: &str, b: &str) -> std::cmp::Ordering {
-    let a_chars: Vec<char> = a.chars().collect();
-    let b_chars: Vec<char> = b.chars().collect();
+    // Split strings into parts (text and numbers)
+    let a_parts = split_alphanumeric(a);
+    let b_parts = split_alphanumeric(b);
     
-    let mut i = 0;
-    
-    while i < a_chars.len() && i < b_chars.len() {
-        let a_char = a_chars[i];
-        let b_char = b_chars[i];
+    // Compare part by part
+    let min_len = a_parts.len().min(b_parts.len());
+    for i in 0..min_len {
+        let a_part = &a_parts[i];
+        let b_part = &b_parts[i];
         
-        // Check if both characters are digits
-        if a_char.is_ascii_digit() && b_char.is_ascii_digit() {
-            // Extract the full number
-            let (a_num, a_end) = extract_number(&a_chars, i);
-            let (b_num, b_end) = extract_number(&b_chars, i);
-            
-            // Compare numbers numerically
-            match a_num.cmp(&b_num) {
-                std::cmp::Ordering::Equal => {
-                    i = a_end.max(b_end);
-                    continue;
+        // Try to parse both as numbers
+        let a_num = a_part.parse::<u64>();
+        let b_num = b_part.parse::<u64>();
+        
+        match (a_num, b_num) {
+            (Ok(a_val), Ok(b_val)) => {
+                // Both are numbers - compare numerically
+                match a_val.cmp(&b_val) {
+                    std::cmp::Ordering::Equal => continue,
+                    other => return other,
                 }
-                other => return other,
             }
-        } else {
-            // Compare using Azerbaijani alphabet order
-            let a_order = get_azerbaijani_char_order(a_char.to_lowercase().next().unwrap_or(a_char));
-            let b_order = get_azerbaijani_char_order(b_char.to_lowercase().next().unwrap_or(b_char));
-            
-            match a_order.cmp(&b_order) {
-                std::cmp::Ordering::Equal => {
-                    i += 1;
-                    continue;
+            (Ok(_), Err(_)) => {
+                // a is number, b is text - numbers come first
+                return std::cmp::Ordering::Less;
+            }
+            (Err(_), Ok(_)) => {
+                // a is text, b is number - numbers come first
+                return std::cmp::Ordering::Greater;
+            }
+            (Err(_), Err(_)) => {
+                // Both are text - compare lexicographically (case insensitive)
+                match a_part.to_lowercase().cmp(&b_part.to_lowercase()) {
+                    std::cmp::Ordering::Equal => continue,
+                    other => return other,
                 }
-                other => return other,
             }
         }
     }
     
-    // If all compared characters are equal, compare by length
-    a_chars.len().cmp(&b_chars.len())
+    // If all parts are equal, compare by number of parts
+    a_parts.len().cmp(&b_parts.len())
+}
+
+/// Splits a string into alternating text and numeric parts
+fn split_alphanumeric(s: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut current_part = String::new();
+    let mut is_digit = false;
+    let mut first_char = true;
+    
+    for ch in s.chars() {
+        if first_char {
+            is_digit = ch.is_ascii_digit();
+            first_char = false;
+        }
+        
+        if ch.is_ascii_digit() == is_digit {
+            // Same type (digit or non-digit), add to current part
+            current_part.push(ch);
+        } else {
+            // Different type, finish current part and start new one
+            if !current_part.is_empty() {
+                parts.push(current_part);
+                current_part = String::new();
+            }
+            current_part.push(ch);
+            is_digit = ch.is_ascii_digit();
+        }
+    }
+    
+    // Add the last part
+    if !current_part.is_empty() {
+        parts.push(current_part);
+    }
+    
+    parts
 }
 
 /// Extracts a number from character array starting at given position
@@ -1124,17 +1268,10 @@ fn get_azerbaijani_char_order(ch: char) -> u32 {
     }
 }
 
-/// Natural sort comparison (like Windows Explorer)
-fn natural_sort_compare(a: &str, b: &str) -> std::cmp::Ordering {
-    #[cfg(windows)]
-    {
-        windows_logical_compare(a, b)
-    }
-    
-    #[cfg(not(windows))]
-    {
-        custom_logical_sort(a, b)
-    }
+/// Natural sort comparison (like Windows Explorer) - FIXED VERSION
+pub fn natural_sort_compare(a: &str, b: &str) -> std::cmp::Ordering {
+    // Always use our custom implementation for consistent behavior
+    custom_logical_sort(a, b)
 }
 
 /// Calculates the total size of a folder
@@ -1277,15 +1414,15 @@ fn copy_file(source: &Path, destination: &Path) -> Result<(), String> {
 // PDF Helper Functions
 // ================================================================================================
 
-/// Processes a single folder for PDF creation
+/// Processes a single folder for PDF creation - WITH DETAILED PROGRESS
 async fn process_folder_for_pdf(
     folder_path: &Path,
     subfolder_path: &Path,
     _subfolder_name: &str,
     delete_files: &[String],
 ) -> Result<usize, String> {
-    // Find all image files
-    let mut image_files = Vec::new();
+    // Pre-allocate vector for speed
+    let mut image_files = Vec::with_capacity(100);
     
     match fs::read_dir(subfolder_path) {
         Ok(entries) => {
@@ -1294,8 +1431,16 @@ async fn process_folder_for_pdf(
                     let path = entry.path();
                     if path.is_file() {
                         if let Some(extension) = path.extension() {
-                            let ext = extension.to_string_lossy().to_lowercase();
-                            if is_image_extension(&ext) {
+                            let ext = extension.to_string_lossy();
+                            // Ultra fast extension check without lowercase conversion
+                            if ext.eq_ignore_ascii_case("jpg") || 
+                               ext.eq_ignore_ascii_case("jpeg") || 
+                               ext.eq_ignore_ascii_case("png") || 
+                               ext.eq_ignore_ascii_case("bmp") || 
+                               ext.eq_ignore_ascii_case("gif") || 
+                               ext.eq_ignore_ascii_case("tiff") || 
+                               ext.eq_ignore_ascii_case("tif") || 
+                               ext.eq_ignore_ascii_case("webp") {
                                 image_files.push(path);
                             }
                         }
@@ -1303,127 +1448,236 @@ async fn process_folder_for_pdf(
                 }
             }
         }
-        Err(e) => return Err(format!("Şəkil qovluğu oxunması xətası: {}", e)),
+        Err(_) => return Err("Şəkil qovluğu oxunması xətası".to_string()),
     }
 
     if image_files.is_empty() {
         return Err("Şəkil faylları tapılmadı".to_string());
     }
 
-    // Sort image files naturally
-    image_files.sort_by(|a, b| {
-        let a_name = a.file_name().unwrap_or_default().to_string_lossy();
-        let b_name = b.file_name().unwrap_or_default().to_string_lossy();
-        natural_sort_compare(&a_name, &b_name)
-    });
+    // Ultra fast sort - only if needed
+    if image_files.len() > 1 {
+        image_files.sort_by(|a, b| {
+            let a_name = a.file_name().unwrap_or_default().to_string_lossy();
+            let b_name = b.file_name().unwrap_or_default().to_string_lossy();
+            natural_sort_compare(&a_name, &b_name)
+        });
+    }
 
     let images_count = image_files.len();
     
-    // Create PDF
+    // Create PDF with original folder name (not subfolder)
     let folder_name = folder_path.file_name()
         .ok_or("Qovluq adı alınmadı")?
         .to_string_lossy();
     let pdf_name = format!("{}_picture.pdf", folder_name);
-    let pdf_path = subfolder_path.join(&pdf_name);
+    let pdf_path = folder_path.join(&pdf_name); // Save PDF to parent folder directly
 
     create_pdf_from_image_files(&image_files, &pdf_path)?;
 
-    // Delete original image files
-    for image_path in &image_files {
-        if let Err(e) = fs::remove_file(image_path) {
-            eprintln!("Şəkil faylı silinmədi {}: {}", image_path.display(), e);
-        }
-    }
-
-    // Delete specified files
-    for file_name in delete_files {
-        let file_path = subfolder_path.join(file_name);
-        if file_path.exists() {
-            if let Err(e) = fs::remove_file(&file_path) {
-                eprintln!("Fayl silinmədi {}: {}", file_name, e);
+    // PARALLEL BATCH DELETE - ULTRA FAST
+    use rayon::prelude::*;
+    
+    let mut files_to_delete = Vec::with_capacity(image_files.len() + delete_files.len() * 10);
+    
+    // Add image files to deletion list
+    files_to_delete.extend(image_files.iter().cloned());
+    
+    // Add specified files to deletion list (FAST)
+    for delete_pattern in delete_files {
+        if !delete_pattern.trim().is_empty() {
+            if let Ok(entries) = fs::read_dir(subfolder_path) {
+                for entry in entries {
+                    if let Ok(entry) = entry {
+                        let file_name = entry.file_name().to_string_lossy().to_string();
+                        if file_name.to_lowercase().contains(&delete_pattern.trim().to_lowercase()) {
+                            files_to_delete.push(entry.path());
+                        }
+                    }
+                }
             }
         }
     }
+    
+    // PARALLEL DELETE - ALL FILES AT ONCE (MAXIMUM SPEED)
+    files_to_delete.par_iter().for_each(|file_path| {
+        let _ = fs::remove_file(file_path);
+    });
 
-    // Move PDF and other files to parent folder
+    // Move remaining files to parent folder (fast)
     move_files_to_parent(folder_path, subfolder_path, &pdf_name)?;
 
-    // Remove empty subfolder
-    if let Err(e) = fs::remove_dir(subfolder_path) {
-        eprintln!("Boş qovluq silinmədi {}: {}", subfolder_path.display(), e);
-    }
+    // Remove empty subfolder (ignore errors)
+    let _ = fs::remove_dir(subfolder_path);
 
     Ok(images_count)
 }
 
-/// Creates PDF from image files using printpdf
+/// ULTRA FAST PDF CREATION - PARALLEL PROCESSING WITH RAW SPEED
 fn create_pdf_from_image_files(image_files: &[std::path::PathBuf], output_path: &Path) -> Result<(), String> {
-    use printpdf::*;
-    use std::io::BufWriter;
+    use pdf_writer::{Pdf, Ref, Content, Filter, Finish, Rect, Name};
+    use rayon::prelude::*;
+    use image::GenericImageView;
+
+    if image_files.is_empty() {
+        return Err("Şəkil faylları yoxdur".to_string());
+    }
+
+    // ULTRA PARALLEL IMAGE PROCESSING - OPTIMIZED FOR 1000+ FILES
+    let batch_size = std::cmp::min(100, std::cmp::max(10, image_files.len() / 8)); // Dynamic batch size
+    let processed_images: Result<Vec<_>, String> = image_files
+        .par_chunks(batch_size)
+        .flat_map(|batch| {
+            batch.par_iter().map(|image_path| {
+            // Read file as bytes directly (FASTEST)
+            let image_bytes = std::fs::read(image_path)
+                .map_err(|e| format!("Fayl oxuma xətası: {}", e))?;
+
+            // Check if it's JPEG (direct embed - FASTEST)
+            let is_jpeg = image_path.extension()
+                .and_then(|ext| ext.to_str())
+                .map(|s| s.to_lowercase())
+                .map(|s| s == "jpg" || s == "jpeg")
+                .unwrap_or(false);
+
+            if is_jpeg {
+                // JPEG - ULTRA FAST - Only read dimensions, don't load full image
+                match image::io::Reader::open(image_path) {
+                    Ok(reader) => {
+                        if let Ok(reader) = reader.with_guessed_format() {
+                            if let Ok((width, height)) = reader.into_dimensions() {
+                                Ok((image_bytes, width, height, true)) // Direct embed - FASTEST
+                            } else {
+                                // Fallback - still fast
+                                let img = ::image::open(image_path)
+                                    .map_err(|e| format!("JPEG açma xətası: {}", e))?;
+                                let (width, height) = img.dimensions();
+                                Ok((image_bytes, width, height, true))
+                            }
+                        } else {
+                            let img = ::image::open(image_path)
+                                .map_err(|e| format!("JPEG açma xətası: {}", e))?;
+                            let (width, height) = img.dimensions();
+                            Ok((image_bytes, width, height, true))
+                        }
+                    }
+                    Err(_) => {
+                        let img = ::image::open(image_path)
+                            .map_err(|e| format!("JPEG açma xətası: {}", e))?;
+                        let (width, height) = img.dimensions();
+                        Ok((image_bytes, width, height, true))
+                    }
+                }
+            } else {
+                // Non-JPEG - Convert to JPEG in memory (FAST)
+                let img = ::image::open(image_path)
+                    .map_err(|e| format!("Şəkil açma xətası: {}", e))?;
+                let (width, height) = img.dimensions();
+                
+                // Convert to JPEG bytes
+                let mut jpeg_bytes = Vec::new();
+                let rgb_img = img.to_rgb8();
+                
+                // Use JPEG encoder directly
+                let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_bytes, 85);
+                encoder.encode(&rgb_img.into_raw(), width, height, image::ColorType::Rgb8)
+                    .map_err(|e| format!("JPEG kodlama xətası: {}", e))?;
+                
+                Ok((jpeg_bytes, width, height, true))
+            }
+            })
+        })
+        .collect();
+
+    let processed_images = processed_images?;
+
+    // CREATE PDF WITH DIRECT BINARY WRITING (FASTEST)
+    let mut pdf = Pdf::new();
     
-    let (doc, page1, layer1) = PdfDocument::new("Image PDF", Mm(210.0), Mm(297.0), "Layer 1");
-    let mut current_layer = doc.get_page(page1).get_layer(layer1);
-    let mut is_first_page = true;
+    // Catalog and Pages
+    let catalog_id = Ref::new(1);
+    let pages_id = Ref::new(2);
+    
+    let mut page_ids = Vec::new();
+    let mut image_ids = Vec::new();
+    let mut content_ids = Vec::new();
+    
+    // Pre-allocate IDs
+    for i in 0..processed_images.len() {
+        page_ids.push(Ref::new((3 + i * 3) as i32));
+        image_ids.push(Ref::new((4 + i * 3) as i32));
+        content_ids.push(Ref::new((5 + i * 3) as i32));
+    }
 
-    for image_path in image_files {
-        // Load image
-        let img = ::image::open(image_path)
-            .map_err(|e| format!("Şəkil açılması xətası {}: {}", image_path.display(), e))?;
+    // Write catalog
+    pdf.catalog(catalog_id).pages(pages_id);
+    
+    // Write pages object
+    let mut pages = pdf.pages(pages_id);
+    pages.kids(page_ids.iter().copied());
+    pages.count(processed_images.len() as i32);
+    pages.finish();
 
-        // Convert to RGB if needed
-        let img = img.to_rgb8();
-        let (width, height) = img.dimensions();
+    // Process each image FAST
+    for (i, (image_data, width, height, _is_jpeg)) in processed_images.iter().enumerate() {
+        let page_id = page_ids[i];
+        let image_id = image_ids[i];
+        let content_id = content_ids[i];
+        
+        // Determine page size (like original)
+        let (page_width, page_height) = if width > height {
+            (842.0, 595.0) // A4 landscape
+        } else {
+            (595.0, 842.0) // A4 portrait
+        };
 
-        // Calculate dimensions for A4 page
-        let page_width = Mm(210.0);
-        let page_height = Mm(297.0);
-        let margin = Mm(10.0);
-        let available_width = page_width - (margin * 2.0);
-        let available_height = page_height - (margin * 2.0);
+        // Calculate scaling
+        let scale_x = page_width / *width as f32;
+        let scale_y = page_height / *height as f32;
+        let scale = scale_x.min(scale_y) * 0.9; // 90% to leave margins
 
-        // Calculate scale to fit image on page
-        let scale_x = available_width.0 / (width as f32 * 0.264583); // Convert pixels to mm
-        let scale_y = available_height.0 / (height as f32 * 0.264583);
-        let scale = scale_x.min(scale_y);
-
-        let final_width = Mm(width as f32 * 0.264583 * scale);
-        let final_height = Mm(height as f32 * 0.264583 * scale);
-
-        // Center image on page
+        let final_width = *width as f32 * scale;
+        let final_height = *height as f32 * scale;
+        
+        // Center position
         let x = (page_width - final_width) / 2.0;
         let y = (page_height - final_height) / 2.0;
 
-        // Add new page if not first
-        if !is_first_page {
-            let (page, layer) = doc.add_page(page_width, page_height, "Layer");
-            current_layer = doc.get_page(page).get_layer(layer);
-        }
-        is_first_page = false;
+        // Write image XObject (DIRECT JPEG EMBED)
+        let mut image = pdf.image_xobject(image_id, image_data);
+        image.width(*width as i32);
+        image.height(*height as i32);
+        image.color_space().device_rgb();
+        image.bits_per_component(8);
+        image.filter(Filter::DctDecode); // JPEG filter
+        image.finish();
 
-        // Create image object
-        let image_bytes = img.into_raw();
-        let image = Image::from_dynamic_image(&::image::DynamicImage::ImageRgb8(
-            ::image::ImageBuffer::from_raw(width, height, image_bytes)
-                .ok_or("Şəkil buffer yaradılması xətası")?
-        ));
+        // Create content stream
+        let mut content = Content::new();
+        content.save_state();
+        content.transform([final_width, 0.0, 0.0, final_height, x, y]);
+        content.x_object(Name(b"Im"));
+        content.restore_state();
+        
+        // Write content stream
+        pdf.stream(content_id, &content.finish());
 
-        // Add image to PDF
-        image.add_to_layer(current_layer.clone(), ImageTransform {
-            translate_x: Some(x),
-            translate_y: Some(y),
-            scale_x: Some(scale),
-            scale_y: Some(scale),
-            rotate: None,
-            dpi: Some(300.0),
-        });
+        // Write page
+        let mut page = pdf.page(page_id);
+        page.media_box(Rect::new(0.0, 0.0, page_width, page_height));
+        page.parent(pages_id);
+        page.contents(content_id);
+        
+        // Add resources
+        page.resources().x_objects().pair(Name(b"Im"), image_id);
+        
+        page.finish();
     }
 
-    // Save PDF
-    let file = std::fs::File::create(output_path)
-        .map_err(|e| format!("PDF fayl yaradılması xətası: {}", e))?;
-    let mut buf_writer = BufWriter::new(file);
-    doc.save(&mut buf_writer)
-        .map_err(|e| format!("PDF saxlama xətası: {}", e))?;
+    // Write PDF to file (DIRECT BINARY WRITE)
+    let pdf_bytes = pdf.finish();
+    std::fs::write(output_path, pdf_bytes)
+        .map_err(|e| format!("PDF yazma xətası: {}", e))?;
 
     Ok(())
 }
@@ -1454,7 +1708,7 @@ fn has_image_files(dir_path: &Path) -> Result<bool, std::io::Error> {
     Ok(false)
 }
 
-/// Moves all files from subfolder to parent folder
+/// Moves all files from subfolder to parent folder quickly
 fn move_files_to_parent(parent_folder: &Path, subfolder: &Path, _pdf_name: &str) -> Result<(), String> {
     match fs::read_dir(subfolder) {
         Ok(entries) => {
@@ -1465,8 +1719,10 @@ fn move_files_to_parent(parent_folder: &Path, subfolder: &Path, _pdf_name: &str)
                         let file_name = entry.file_name();
                         let dest_path = parent_folder.join(&file_name);
                         
-                        if let Err(e) = fs::rename(&source_path, &dest_path) {
-                            eprintln!("Fayl köçürülmədi {}: {}", file_name.to_string_lossy(), e);
+                        // Try rename first (fast), if fails try copy+delete
+                        if fs::rename(&source_path, &dest_path).is_err() {
+                            let _ = fs::copy(&source_path, &dest_path);
+                            let _ = fs::remove_file(&source_path);
                         }
                     }
                 }
@@ -1478,31 +1734,67 @@ fn move_files_to_parent(parent_folder: &Path, subfolder: &Path, _pdf_name: &str)
     Ok(())
 }
 
-/// Removes empty directories recursively
-fn remove_empty_directories(root: &Path) -> Result<(), String> {
-    let entries = fs::read_dir(root)
-        .map_err(|e| format!("Qovluq oxunması xətası: {}", e))?;
-
-    for entry in entries {
-        let entry = entry.map_err(|e| format!("Entry oxunması xətası: {}", e))?;
-        let path = entry.path();
-        
-        if path.is_dir() {
-            // Recursively process subdirectories
-            if let Err(e) = remove_empty_directories(&path) {
-                eprintln!("Alt qovluq təmizlənmədi {}: {}", path.display(), e);
+/// ULTRA FAST - Removes ALL empty directories in entire area
+fn remove_all_empty_directories_in_area(root: &Path) -> Result<(), String> {
+    use rayon::prelude::*;
+    use std::collections::HashSet;
+    use std::sync::Mutex;
+    
+    let _empty_dirs = Mutex::new(HashSet::<std::path::PathBuf>::new());
+    
+    // PARALLEL SCAN - Find all directories first
+    fn scan_directories(dir: &Path, all_dirs: &Mutex<HashSet<std::path::PathBuf>>) {
+        if let Ok(entries) = fs::read_dir(dir) {
+            let subdirs: Vec<_> = entries
+                .filter_map(|entry| entry.ok())
+                .filter(|entry| entry.path().is_dir())
+                .map(|entry| entry.path())
+                .collect();
+            
+            // Add current level directories
+            if let Ok(mut dirs) = all_dirs.lock() {
+                dirs.extend(subdirs.iter().cloned());
             }
             
-            // Try to remove if empty
-            if is_directory_empty(&path).unwrap_or(false) {
-                if let Err(e) = fs::remove_dir(&path) {
-                    eprintln!("Boş qovluq silinmədi {}: {}", path.display(), e);
-                }
-            }
+            // Recursively scan subdirectories in parallel
+            subdirs.par_iter().for_each(|subdir| {
+                scan_directories(subdir, all_dirs);
+            });
         }
     }
     
+    // Scan all directories
+    let all_directories = Mutex::new(HashSet::new());
+    scan_directories(root, &all_directories);
+    
+    let all_dirs = all_directories.into_inner().unwrap();
+    
+    // PARALLEL CHECK AND DELETE - Process all directories at once
+    let empty_dirs: Vec<_> = all_dirs
+        .par_iter()
+        .filter(|dir| {
+            // Check if directory is empty
+            if let Ok(mut entries) = fs::read_dir(dir) {
+                entries.next().is_none()
+            } else {
+                false
+            }
+        })
+        .cloned()
+        .collect();
+    
+    // PARALLEL DELETE - Remove all empty directories at once
+    empty_dirs.par_iter().for_each(|dir| {
+        let _ = fs::remove_dir(dir);
+    });
+    
     Ok(())
+}
+
+/// Removes empty directories recursively and quickly
+fn remove_empty_directories(root: &Path) -> Result<(), String> {
+    // Use the ultra-fast version for better performance
+    remove_all_empty_directories_in_area(root)
 }
 
 /// Checks if a directory is empty
