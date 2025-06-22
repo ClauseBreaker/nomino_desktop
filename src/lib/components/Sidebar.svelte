@@ -4,6 +4,7 @@
 		FolderEdit, 
 		FileText, 
 		FileSpreadsheet,
+		Copy,
 		Settings 
 	} from 'lucide-svelte';
 	
@@ -28,6 +29,12 @@
 			icon: FileSpreadsheet, 
 			label: 'PDF',
 			active: currentPath === '/pdf'
+		},
+		{ 
+			path: '/copy', 
+			icon: Copy, 
+			label: 'Fayl Kopyalama',
+			active: currentPath === '/copy'
 		},
 		{ 
 			path: '/settings', 

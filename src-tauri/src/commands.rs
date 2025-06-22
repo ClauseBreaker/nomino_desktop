@@ -1801,4 +1801,142 @@ fn remove_empty_directories(root: &Path) -> Result<(), String> {
 fn is_directory_empty(dir_path: &Path) -> Result<bool, std::io::Error> {
     let mut entries = fs::read_dir(dir_path)?;
     Ok(entries.next().is_none())
+}
+
+// ================================================================================================
+// FILE COPY TO SUBFOLDERS - Commands
+// ================================================================================================
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct FileCopyResult {
+    pub success: bool,
+    pub folder_path: String,
+    pub message: String,
+}
+
+/// Copies a file to all subfolders in the specified directory
+#[tauri::command]
+pub async fn copy_file_to_all_subfolders(
+    window: Window,
+    source_file: String,
+    target_folder: String,
+    state: State<'_, ProcessState>,
+) -> Result<Vec<FileCopyResult>, String> {
+    use std::time::Duration;
+    use tokio::time::sleep;
+    
+    // Reset process state
+    state.reset();
+    state.start();
+    
+    let source_path = Path::new(&source_file);
+    let target_path = Path::new(&target_folder);
+    
+    if !source_path.exists() {
+        return Err("Mənbə fayl mövcud deyil".to_string());
+    }
+    
+    if !target_path.exists() {
+        return Err("Hədəf qovluq mövcud deyil".to_string());
+    }
+    
+    // Emit initial progress with delay
+    emit_progress(&window, 0, 100, "Başlanılır", "Alt qovluqlar axtarılır...");
+    sleep(Duration::from_millis(300)).await;
+    
+    // Get all subdirectories
+    let mut subdirs = Vec::new();
+    collect_subdirectories(target_path, &mut subdirs)?;
+    
+    if subdirs.is_empty() {
+        return Err("Alt qovluqlar tapılmadı".to_string());
+    }
+    
+    let total = subdirs.len();
+    let file_name = source_path.file_name()
+        .ok_or("Fayl adı alınmadı")?
+        .to_string_lossy();
+    
+    // Show directories found
+    emit_progress(&window, 5, 100, "Alt qovluqlar tapıldı", &format!("{} alt qovluq tapıldı", total));
+    sleep(Duration::from_millis(400)).await;
+    
+    let mut results = Vec::new();
+    
+    // Process directories sequentially with progress updates and delays
+    for (index, subdir) in subdirs.iter().enumerate() {
+        let dest_file = subdir.join(&*file_name);
+        
+        let result = match fs::copy(&source_file, &dest_file) {
+            Ok(_) => FileCopyResult {
+                success: true,
+                folder_path: subdir.display().to_string(),
+                message: format!("✅ Uğurla kopyalandı: {}", 
+                    subdir.file_name().unwrap_or_default().to_string_lossy()),
+            },
+            Err(e) => FileCopyResult {
+                success: false,
+                folder_path: subdir.display().to_string(),
+                message: format!("❌ Xəta: {}", e),
+            },
+        };
+        
+        // Calculate progress (5% to 95% for copying)
+        let progress = 5 + ((index + 1) as f32 / total as f32 * 90.0) as usize;
+        let folder_name = subdir.file_name().unwrap_or_default().to_string_lossy();
+        
+        emit_progress(&window, progress, 100, "Kopyalanır", 
+            &format!("Kopyalanır: {} ({}/{})", folder_name, index + 1, total));
+        
+        // Emit individual result
+        emit_process_result(&window, result.success, &result.message, &result.folder_path, &file_name);
+        
+        results.push(result);
+        
+        // Add delay to make progress visible
+        sleep(Duration::from_millis(80)).await;
+    }
+    
+    // Final progress steps with delays
+    emit_progress(&window, 96, 100, "Tamamlanır", "Nəticələr hazırlanır...");
+    sleep(Duration::from_millis(300)).await;
+    
+    emit_progress(&window, 98, 100, "Tamamlanır", "Son yoxlama...");
+    sleep(Duration::from_millis(200)).await;
+    
+    // Final summary
+    let success_count = results.iter().filter(|r| r.success).count();
+    let error_count = total - success_count;
+    
+    emit_progress(&window, 100, 100, "Tamamlandı!", 
+        &format!("✅ {} uğurlu, {} xəta", success_count, error_count));
+    
+    // Emit final summary result
+    emit_process_result(&window, true, 
+        &format!("🎉 Kopyalama tamamlandı! {} qovluqdan {} qovluğa uğurla kopyalandı", 
+                total, success_count), "", &file_name);
+    
+    sleep(Duration::from_millis(500)).await;
+    
+    state.stop();
+    Ok(results)
+}
+
+/// Recursively collects all subdirectories
+fn collect_subdirectories(dir: &Path, subdirs: &mut Vec<std::path::PathBuf>) -> Result<(), String> {
+    let entries = fs::read_dir(dir)
+        .map_err(|e| format!("Qovluq oxunması xətası: {}", e))?;
+    
+    for entry in entries {
+        if let Ok(entry) = entry {
+            let path = entry.path();
+            if path.is_dir() {
+                subdirs.push(path.clone());
+                // Recursively collect subdirectories
+                collect_subdirectories(&path, subdirs)?;
+            }
+        }
+    }
+    
+    Ok(())
 } 
