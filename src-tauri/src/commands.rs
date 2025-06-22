@@ -709,7 +709,9 @@ pub async fn rename_files(
     }
 
     let mut renamed_files = Vec::new();
+    let mut file_entries = Vec::new();
     
+    // Collect all file entries first
     match fs::read_dir(dir_path) {
         Ok(entries) => {
             for entry in entries {
@@ -717,26 +719,39 @@ pub async fn rename_files(
                     let path = entry.path();
                     
                     if path.is_file() {
-                        let old_name = entry.file_name().to_string_lossy().to_string();
-                        let new_name = old_name.replace(&pattern, &replacement);
-                        
-                        if old_name != new_name {
-                            let new_path = dir_path.join(&new_name);
-                            
-                            match fs::rename(&path, &new_path) {
-                                Ok(_) => {
-                                    renamed_files.push(format!("{} -> {}", old_name, new_name));
-                                }
-                                Err(e) => {
-                                    return Err(format!("Fayl adını dəyişmək mümkün olmadı {}: {}", old_name, e));
-                                }
-                            }
-                        }
+                        file_entries.push(entry);
                     }
                 }
             }
         }
         Err(e) => return Err(e.to_string()),
+    }
+    
+    // Sort files using Azerbaijani alphabet
+    file_entries.sort_by(|a, b| {
+        let a_name = a.file_name().to_string_lossy().to_string();
+        let b_name = b.file_name().to_string_lossy().to_string();
+        natural_sort_compare(&a_name, &b_name)
+    });
+    
+    // Process sorted files
+    for entry in file_entries {
+        let path = entry.path();
+        let old_name = entry.file_name().to_string_lossy().to_string();
+        let new_name = old_name.replace(&pattern, &replacement);
+        
+        if old_name != new_name {
+            let new_path = dir_path.join(&new_name);
+            
+            match fs::rename(&path, &new_path) {
+                Ok(_) => {
+                    renamed_files.push(format!("{} -> {}", old_name, new_name));
+                }
+                Err(e) => {
+                    return Err(format!("Fayl adını dəyişmək mümkün olmadı {}: {}", old_name, e));
+                }
+            }
+        }
     }
     
     Ok(renamed_files)
@@ -756,7 +771,9 @@ pub async fn rename_folders(
     }
 
     let mut renamed_folders = Vec::new();
+    let mut folder_entries = Vec::new();
     
+    // Collect all folder entries first
     match fs::read_dir(dir_path) {
         Ok(entries) => {
             for entry in entries {
@@ -764,26 +781,39 @@ pub async fn rename_folders(
                     let path = entry.path();
                     
                     if path.is_dir() {
-                        let old_name = entry.file_name().to_string_lossy().to_string();
-                        let new_name = old_name.replace(&pattern, &replacement);
-                        
-                        if old_name != new_name {
-                            let new_path = dir_path.join(&new_name);
-                            
-                            match fs::rename(&path, &new_path) {
-                                Ok(_) => {
-                                    renamed_folders.push(format!("{} -> {}", old_name, new_name));
-                                }
-                                Err(e) => {
-                                    return Err(format!("Qovluq adını dəyişmək mümkün olmadı {}: {}", old_name, e));
-                                }
-                            }
-                        }
+                        folder_entries.push(entry);
                     }
                 }
             }
         }
         Err(e) => return Err(e.to_string()),
+    }
+    
+    // Sort folders using Azerbaijani alphabet
+    folder_entries.sort_by(|a, b| {
+        let a_name = a.file_name().to_string_lossy().to_string();
+        let b_name = b.file_name().to_string_lossy().to_string();
+        natural_sort_compare(&a_name, &b_name)
+    });
+    
+    // Process sorted folders
+    for entry in folder_entries {
+        let path = entry.path();
+        let old_name = entry.file_name().to_string_lossy().to_string();
+        let new_name = old_name.replace(&pattern, &replacement);
+        
+        if old_name != new_name {
+            let new_path = dir_path.join(&new_name);
+            
+            match fs::rename(&path, &new_path) {
+                Ok(_) => {
+                    renamed_folders.push(format!("{} -> {}", old_name, new_name));
+                }
+                Err(e) => {
+                    return Err(format!("Qovluq adını dəyişmək mümkün olmadı {}: {}", old_name, e));
+                }
+            }
+        }
     }
     
     Ok(renamed_folders)
