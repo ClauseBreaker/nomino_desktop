@@ -38,6 +38,7 @@ use commands::{
     create_pdf_from_images,
     get_pdf_subfolders,
     copy_file_to_all_subfolders,
+    change_pdf_dates,
     pause_process,
     resume_process,
     stop_process,
@@ -83,6 +84,9 @@ fn main() {
             
             // File copy operations
             copy_file_to_all_subfolders,
+            
+            // PDF date change operations
+            change_pdf_dates,
             
             // Process control operations
             pause_process,

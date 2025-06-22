@@ -5,6 +5,7 @@
 		FileText, 
 		FileSpreadsheet,
 		Copy,
+		Calendar,
 		Settings 
 	} from 'lucide-svelte';
 	
@@ -35,6 +36,12 @@
 			icon: Copy, 
 			label: 'Fayl Kopyalama',
 			active: currentPath === '/copy'
+		},
+		{ 
+			path: '/pdf-date', 
+			icon: Calendar, 
+			label: 'PDF Tarix Dəyişdiricisi',
+			active: currentPath === '/pdf-date'
 		},
 		{ 
 			path: '/settings', 
