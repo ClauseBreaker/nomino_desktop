@@ -1838,6 +1838,298 @@ pub struct PdfDateChangeResult {
 // ================================================================================================
 // PDF MERGER - Commands
 // ================================================================================================
+// EXCEL ADVANCED RENAMER - Commands
+// ================================================================================================
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ExcelRenameConfig {
+    pub folder_path: String,
+    pub excel_path: String,
+    pub mode: String, // "original" or "digits"
+    pub start_row: u32,
+    pub column: String,
+    pub start_file_name: Option<String>,
+    pub digit_count: Option<u32>,
+    pub digit_from_end: bool,
+    pub limit_files: bool,
+    pub limit_count: Option<u32>,
+    pub limit_chars: bool,
+    pub char_count: Option<u32>,
+    pub char_from_end: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ExcelRenameResult {
+    pub success: bool,
+    pub old_name: String,
+    pub new_name: String,
+    pub message: String,
+}
+
+/// Advanced file renaming from Excel data with multiple modes and options
+#[tauri::command]
+pub async fn rename_files_from_excel_advanced(
+    window: Window,
+    config: ExcelRenameConfig,
+    state: State<'_, ProcessState>,
+) -> Result<Vec<ExcelRenameResult>, String> {
+    use std::time::Duration;
+    use tokio::time::sleep;
+    
+    // Reset process state
+    state.reset();
+    state.start();
+    
+    let folder_path = Path::new(&config.folder_path);
+    if !folder_path.exists() {
+        return Err("Qovluq mövcud deyil".to_string());
+    }
+    
+    // Emit initial progress
+    emit_progress(&window, 0, 100, "Başlanılır", "Excel fayl oxunur...");
+    sleep(Duration::from_millis(300)).await;
+    
+    // Read Excel data
+    let excel_data = read_excel_names(&config.excel_path, config.start_row, &config.column)?;
+    
+    if excel_data.is_empty() {
+        return Err("Excel faylında məlumat tapılmadı".to_string());
+    }
+    
+    emit_progress(&window, 10, 100, "Excel oxundu", 
+        &format!("{} sətir məlumat tapıldı", excel_data.len()));
+    sleep(Duration::from_millis(400)).await;
+    
+    // Get files in folder based on mode
+    let mut files = get_files_by_mode(folder_path, &config)?;
+    
+    if files.is_empty() {
+        return Err("Qovluqda uyğun fayllar tapılmadı".to_string());
+    }
+    
+    // Apply file limit if specified
+    if config.limit_files {
+        if let Some(limit) = config.limit_count {
+            files.truncate(limit as usize);
+        }
+    }
+    
+    let total_files = files.len().min(excel_data.len());
+    emit_progress(&window, 20, 100, "Fayllar hazırlandı", 
+        &format!("{} fayl işlənəcək", total_files));
+    sleep(Duration::from_millis(400)).await;
+    
+    let mut results = Vec::new();
+    
+    // Process each file
+    for (index, file_path) in files.iter().enumerate().take(total_files) {
+        // Check for stop signal
+        if state.should_stop() {
+            break;
+        }
+        
+        // Handle pause
+        while state.is_paused() && !state.should_stop() {
+            sleep(Duration::from_millis(50)).await;
+        }
+        if state.should_stop() {
+            break;
+        }
+        
+        let old_name = file_path.file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+        
+        // Calculate progress (20% to 95% for processing)
+        let progress = 20 + ((index + 1) as f32 / total_files as f32 * 75.0) as usize;
+        emit_progress(&window, progress, 100, "Fayllar adlandırılır", 
+            &format!("İşlənir: {} ({}/{})", old_name, index + 1, total_files));
+        
+        let excel_name = &excel_data[index];
+        let result = rename_single_file_advanced(file_path, excel_name, &config).await;
+        
+        // Emit individual result
+        emit_process_result(&window, result.success, &result.message, &old_name, &result.new_name);
+        
+        results.push(result);
+        
+        // Add delay to make progress visible
+        sleep(Duration::from_millis(80)).await;
+    }
+    
+    // Final progress steps
+    emit_progress(&window, 96, 100, "Tamamlanır", "Nəticələr hazırlanır...");
+    sleep(Duration::from_millis(300)).await;
+    
+    emit_progress(&window, 98, 100, "Tamamlanır", "Son yoxlama...");
+    sleep(Duration::from_millis(200)).await;
+    
+    // Final summary
+    let success_count = results.iter().filter(|r| r.success).count();
+    let error_count = total_files - success_count;
+    
+    emit_progress(&window, 100, 100, "Tamamlandı!", 
+        &format!("✅ {} uğurlu, {} xəta", success_count, error_count));
+    
+    // Emit final summary
+    emit_process_result(&window, true, 
+        &format!("🎉 Excel adlandırma tamamlandı! {} fayldan {} fayl uğurla adlandırıldı", 
+                total_files, success_count), "", "");
+    
+    sleep(Duration::from_millis(500)).await;
+    
+    state.stop();
+    Ok(results)
+}
+
+/// Get files based on the selected mode
+fn get_files_by_mode(folder_path: &Path, config: &ExcelRenameConfig) -> Result<Vec<std::path::PathBuf>, String> {
+    let mut files = Vec::new();
+    
+    let entries = fs::read_dir(folder_path)
+        .map_err(|e| format!("Qovluq oxunması xətası: {}", e))?;
+    
+    for entry in entries {
+        if let Ok(entry) = entry {
+            let path = entry.path();
+            if path.is_file() {
+                files.push(path);
+            }
+        }
+    }
+    
+    if config.mode == "digits" {
+        // Filter only files with numeric names
+        files.retain(|f| {
+            if let Some(stem) = f.file_stem() {
+                let name = stem.to_string_lossy();
+                if let Some(digit_count) = config.digit_count {
+                    if config.digit_from_end {
+                        let suffix = if name.len() >= digit_count as usize {
+                            &name[name.len() - digit_count as usize..]
+                        } else {
+                            &name
+                        };
+                        suffix.chars().all(|c| c.is_ascii_digit())
+                    } else {
+                        let prefix = if name.len() >= digit_count as usize {
+                            &name[..digit_count as usize]
+                        } else {
+                            &name
+                        };
+                        prefix.chars().all(|c| c.is_ascii_digit())
+                    }
+                } else {
+                    name.chars().all(|c| c.is_ascii_digit())
+                }
+            } else {
+                false
+            }
+        });
+        
+        // Sort numerically
+        files.sort_by(|a, b| {
+            let a_name = a.file_stem().unwrap_or_default().to_string_lossy();
+            let b_name = b.file_stem().unwrap_or_default().to_string_lossy();
+            
+            if let (Ok(a_num), Ok(b_num)) = (a_name.parse::<u32>(), b_name.parse::<u32>()) {
+                a_num.cmp(&b_num)
+            } else {
+                a_name.cmp(&b_name)
+            }
+        });
+    } else {
+        // Original mode - sort naturally and optionally start from specific file
+        files.sort_by(|a, b| {
+            let a_name = a.file_name().unwrap_or_default().to_string_lossy();
+            let b_name = b.file_name().unwrap_or_default().to_string_lossy();
+            natural_sort_compare(&a_name, &b_name)
+        });
+        
+        // Find start index if start_file_name is specified
+        if let Some(start_name) = &config.start_file_name {
+            if !start_name.is_empty() {
+                if let Some(start_index) = files.iter().position(|f| {
+                    f.file_stem()
+                        .unwrap_or_default()
+                        .to_string_lossy() == *start_name
+                }) {
+                    files = files[start_index..].to_vec();
+                }
+            }
+        }
+    }
+    
+    Ok(files)
+}
+
+/// Rename a single file with advanced options
+async fn rename_single_file_advanced(
+    file_path: &Path,
+    excel_name: &str,
+    config: &ExcelRenameConfig,
+) -> ExcelRenameResult {
+    let old_name = file_path.file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+    
+    let file_stem = file_path.file_stem()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+    
+    let extension = file_path.extension()
+        .map(|ext| format!(".{}", ext.to_string_lossy()))
+        .unwrap_or_default();
+    
+    // Clean Excel name (replace spaces with underscores)
+    let clean_excel_name = excel_name.replace(' ', "_");
+    
+    let new_stem = if config.limit_chars {
+        if let Some(char_count) = config.char_count {
+            let char_count = char_count as usize;
+            if file_stem.len() > char_count {
+                if config.char_from_end {
+                    // Replace last N characters
+                    format!("{}{}", &file_stem[..file_stem.len() - char_count], clean_excel_name)
+                } else {
+                    // Replace first N characters
+                    format!("{}{}", clean_excel_name, &file_stem[char_count..])
+                }
+            } else {
+                // If file name is shorter than limit, just use Excel name
+                clean_excel_name
+            }
+        } else {
+            clean_excel_name
+        }
+    } else {
+        // Replace entire name
+        clean_excel_name
+    };
+    
+    let new_name = format!("{}{}", new_stem, extension);
+    let new_path = file_path.with_file_name(&new_name);
+    
+    match fs::rename(file_path, &new_path) {
+        Ok(_) => ExcelRenameResult {
+            success: true,
+            old_name,
+            new_name,
+            message: format!("✅ Uğurla adlandırıldı"),
+        },
+        Err(e) => ExcelRenameResult {
+            success: false,
+            old_name: old_name.clone(),
+            new_name: old_name,
+            message: format!("❌ Xəta: {}", e),
+        },
+    }
+}
+
+// ================================================================================================
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct PdfMergerConfig {

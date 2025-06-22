@@ -33,6 +33,7 @@ use commands::{
     rename_folders,
     rename_folders_from_excel,
     rename_files_from_excel,
+    rename_files_from_excel_advanced,
     read_excel_column,
     create_pdf,
     create_pdf_from_images,
@@ -75,6 +76,7 @@ fn main() {
             rename_folders,
             rename_folders_from_excel,
             rename_files_from_excel,
+            rename_files_from_excel_advanced,
             
             // Document operations
             create_pdf,

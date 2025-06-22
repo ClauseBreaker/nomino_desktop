@@ -7,7 +7,9 @@
 		Copy,
 		Calendar,
 		Layers,
-		Settings 
+		Settings,
+		FolderOpen,
+		ImageIcon
 	} from 'lucide-svelte';
 	
 	export let currentPath = '';
@@ -28,7 +30,7 @@
 		},
 		{ 
 			path: '/pdf', 
-			icon: FileSpreadsheet, 
+			icon: ImageIcon, 
 			label: 'PDF',
 			active: currentPath === '/pdf'
 		},
@@ -49,6 +51,12 @@
 			icon: Layers, 
 			label: 'PDF Birləşdirici',
 			active: currentPath === '/pdf-merge'
+		},
+		{ 
+			path: '/excel-rename', 
+			icon: FileSpreadsheet, 
+			label: 'Excel Fayl Adı Dəyişdirici',
+			active: currentPath === '/excel-rename'
 		},
 		{ 
 			path: '/settings', 
