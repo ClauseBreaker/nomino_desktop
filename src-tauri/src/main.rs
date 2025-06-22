@@ -34,6 +34,8 @@ use commands::{
     rename_files_from_excel,
     read_excel_column,
     create_pdf,
+    create_pdf_from_images,
+    get_pdf_subfolders,
     pause_process,
     resume_process,
     stop_process,
@@ -71,6 +73,10 @@ fn main() {
             
             // Document operations
             create_pdf,
+            
+            // PDF creation operations
+            create_pdf_from_images,
+            get_pdf_subfolders,
             
             // Process control operations
             pause_process,

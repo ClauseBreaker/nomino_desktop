@@ -12,8 +12,7 @@ use std::fs;
 use std::path::Path;
 use std::time::Duration;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::Arc;
-use tauri::{command, Window, State, Manager};
+use tauri::{command, Window, State};
 use tokio::time::sleep;
 
 #[cfg(windows)]
@@ -172,6 +171,193 @@ pub fn get_process_status(state: State<ProcessState>) -> Result<serde_json::Valu
 #[command]
 pub fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
+}
+
+// ================================================================================================
+// PDF Creation Commands
+// ================================================================================================
+
+/// Represents PDF creation configuration
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PdfConfig {
+    pub main_folder: String,
+    pub subfolder_name: String,
+    pub delete_files: Vec<String>,
+}
+
+/// Represents the result of PDF creation for a single folder
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PdfResult {
+    pub success: bool,
+    pub folder_name: String,
+    pub message: String,
+    pub images_found: usize,
+    pub pdf_created: bool,
+}
+
+/// Creates PDF files from images in subfolders with process control
+#[command]
+pub async fn create_pdf_from_images(
+    window: Window,
+    config: PdfConfig,
+    state: State<'_, ProcessState>,
+) -> Result<Vec<PdfResult>, String> {
+    // Start the process
+    state.start();
+    
+    let main_folder = Path::new(&config.main_folder);
+    if !main_folder.exists() {
+        return Err("Əsas qovluq mövcud deyil".to_string());
+    }
+
+    let mut results = Vec::new();
+    let mut subfolders = Vec::new();
+
+    // Collect all subfolders
+    match fs::read_dir(main_folder) {
+        Ok(entries) => {
+            for entry in entries {
+                if let Ok(entry) = entry {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        subfolders.push(entry.file_name().to_string_lossy().to_string());
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            state.reset();
+            return Err(format!("Qovluq oxunması xətası: {}", e));
+        }
+    }
+
+    if subfolders.is_empty() {
+        state.reset();
+        return Err("Alt qovluqlar tapılmadı".to_string());
+    }
+
+    let total_folders = subfolders.len();
+
+    // Process each subfolder
+    for (index, folder_name) in subfolders.iter().enumerate() {
+        // Check if process should stop
+        if state.should_stop() {
+            break;
+        }
+
+        // Handle pause
+        while state.is_paused() && !state.should_stop() {
+            sleep(Duration::from_millis(100)).await;
+        }
+
+        if state.should_stop() {
+            break;
+        }
+
+        let folder_path = main_folder.join(folder_name);
+        let subfolder_path = folder_path.join(&config.subfolder_name);
+
+        // Emit progress
+        emit_progress(
+            &window,
+            index + 1,
+            total_folders,
+            &format!("'{}' qovluğu işlənir", folder_name),
+            &format!("{}/{} qovluq", index + 1, total_folders),
+        );
+
+        let result = if subfolder_path.exists() && subfolder_path.is_dir() {
+            match process_folder_for_pdf(&folder_path, &subfolder_path, &config.subfolder_name, &config.delete_files).await {
+                Ok(images_count) => {
+                    emit_process_result(&window, true, &format!("PDF yaradıldı: {}_picture.pdf", folder_name), folder_name, "");
+                    PdfResult {
+                        success: true,
+                        folder_name: folder_name.clone(),
+                        message: format!("PDF uğurla yaradıldı ({} şəkil)", images_count),
+                        images_found: images_count,
+                        pdf_created: true,
+                    }
+                }
+                Err(e) => {
+                    emit_process_result(&window, false, &format!("Xəta: {}", e), folder_name, "");
+                    PdfResult {
+                        success: false,
+                        folder_name: folder_name.clone(),
+                        message: format!("Xəta: {}", e),
+                        images_found: 0,
+                        pdf_created: false,
+                    }
+                }
+            }
+        } else {
+            PdfResult {
+                success: false,
+                folder_name: folder_name.clone(),
+                message: format!("'{}' alt qovluğu tapılmadı", config.subfolder_name),
+                images_found: 0,
+                pdf_created: false,
+            }
+        };
+
+        results.push(result);
+
+        // Small delay for UI updates
+        sleep(Duration::from_millis(50)).await;
+    }
+
+    // Clean up empty directories
+    if let Err(e) = remove_empty_directories(main_folder) {
+        eprintln!("Boş qovluqları silmə xətası: {}", e);
+    }
+
+    state.reset();
+    Ok(results)
+}
+
+/// Gets list of subfolders in the main directory for PDF processing
+#[command]
+pub async fn get_pdf_subfolders(main_folder: String) -> Result<Vec<FileInfo>, String> {
+    let main_path = Path::new(&main_folder);
+    
+    if !main_path.exists() {
+        return Err("Qovluq mövcud deyil".to_string());
+    }
+
+    let mut subfolders = Vec::new();
+    
+    match fs::read_dir(main_path) {
+        Ok(entries) => {
+            for entry in entries {
+                if let Ok(entry) = entry {
+                    let path = entry.path();
+                    let metadata = entry.metadata().map_err(|e| e.to_string())?;
+                    
+                    if metadata.is_dir() {
+                        // Check if this subfolder contains image subfolder
+                        let subfolder_path = path.join("images"); // Default check
+                        let has_images = subfolder_path.exists() && 
+                            has_image_files(&subfolder_path).unwrap_or(false);
+                        
+                        let file_info = FileInfo {
+                            name: entry.file_name().to_string_lossy().to_string(),
+                            path: path.to_string_lossy().to_string(),
+                            is_directory: true,
+                            size: if has_images { 1 } else { 0 }, // Use size field to indicate if has images
+                            extension: None,
+                        };
+                        
+                        subfolders.push(file_info);
+                    }
+                }
+            }
+        }
+        Err(e) => return Err(e.to_string()),
+    }
+    
+    // Sort alphabetically
+    subfolders.sort_by(|a, b| natural_sort_compare(&a.name, &b.name));
+    
+    Ok(subfolders)
 }
 
 // ================================================================================================
@@ -1085,4 +1271,242 @@ fn copy_file(source: &Path, destination: &Path) -> Result<(), String> {
     fs::copy(source, destination)
         .map_err(|e| format!("Faylı kopyalamaq mümkün olmadı: {}", e))?;
     Ok(())
+}
+
+// ================================================================================================
+// PDF Helper Functions
+// ================================================================================================
+
+/// Processes a single folder for PDF creation
+async fn process_folder_for_pdf(
+    folder_path: &Path,
+    subfolder_path: &Path,
+    _subfolder_name: &str,
+    delete_files: &[String],
+) -> Result<usize, String> {
+    // Find all image files
+    let mut image_files = Vec::new();
+    
+    match fs::read_dir(subfolder_path) {
+        Ok(entries) => {
+            for entry in entries {
+                if let Ok(entry) = entry {
+                    let path = entry.path();
+                    if path.is_file() {
+                        if let Some(extension) = path.extension() {
+                            let ext = extension.to_string_lossy().to_lowercase();
+                            if is_image_extension(&ext) {
+                                image_files.push(path);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Err(e) => return Err(format!("Şəkil qovluğu oxunması xətası: {}", e)),
+    }
+
+    if image_files.is_empty() {
+        return Err("Şəkil faylları tapılmadı".to_string());
+    }
+
+    // Sort image files naturally
+    image_files.sort_by(|a, b| {
+        let a_name = a.file_name().unwrap_or_default().to_string_lossy();
+        let b_name = b.file_name().unwrap_or_default().to_string_lossy();
+        natural_sort_compare(&a_name, &b_name)
+    });
+
+    let images_count = image_files.len();
+    
+    // Create PDF
+    let folder_name = folder_path.file_name()
+        .ok_or("Qovluq adı alınmadı")?
+        .to_string_lossy();
+    let pdf_name = format!("{}_picture.pdf", folder_name);
+    let pdf_path = subfolder_path.join(&pdf_name);
+
+    create_pdf_from_image_files(&image_files, &pdf_path)?;
+
+    // Delete original image files
+    for image_path in &image_files {
+        if let Err(e) = fs::remove_file(image_path) {
+            eprintln!("Şəkil faylı silinmədi {}: {}", image_path.display(), e);
+        }
+    }
+
+    // Delete specified files
+    for file_name in delete_files {
+        let file_path = subfolder_path.join(file_name);
+        if file_path.exists() {
+            if let Err(e) = fs::remove_file(&file_path) {
+                eprintln!("Fayl silinmədi {}: {}", file_name, e);
+            }
+        }
+    }
+
+    // Move PDF and other files to parent folder
+    move_files_to_parent(folder_path, subfolder_path, &pdf_name)?;
+
+    // Remove empty subfolder
+    if let Err(e) = fs::remove_dir(subfolder_path) {
+        eprintln!("Boş qovluq silinmədi {}: {}", subfolder_path.display(), e);
+    }
+
+    Ok(images_count)
+}
+
+/// Creates PDF from image files using printpdf
+fn create_pdf_from_image_files(image_files: &[std::path::PathBuf], output_path: &Path) -> Result<(), String> {
+    use printpdf::*;
+    use std::io::BufWriter;
+    
+    let (doc, page1, layer1) = PdfDocument::new("Image PDF", Mm(210.0), Mm(297.0), "Layer 1");
+    let mut current_layer = doc.get_page(page1).get_layer(layer1);
+    let mut is_first_page = true;
+
+    for image_path in image_files {
+        // Load image
+        let img = ::image::open(image_path)
+            .map_err(|e| format!("Şəkil açılması xətası {}: {}", image_path.display(), e))?;
+
+        // Convert to RGB if needed
+        let img = img.to_rgb8();
+        let (width, height) = img.dimensions();
+
+        // Calculate dimensions for A4 page
+        let page_width = Mm(210.0);
+        let page_height = Mm(297.0);
+        let margin = Mm(10.0);
+        let available_width = page_width - (margin * 2.0);
+        let available_height = page_height - (margin * 2.0);
+
+        // Calculate scale to fit image on page
+        let scale_x = available_width.0 / (width as f32 * 0.264583); // Convert pixels to mm
+        let scale_y = available_height.0 / (height as f32 * 0.264583);
+        let scale = scale_x.min(scale_y);
+
+        let final_width = Mm(width as f32 * 0.264583 * scale);
+        let final_height = Mm(height as f32 * 0.264583 * scale);
+
+        // Center image on page
+        let x = (page_width - final_width) / 2.0;
+        let y = (page_height - final_height) / 2.0;
+
+        // Add new page if not first
+        if !is_first_page {
+            let (page, layer) = doc.add_page(page_width, page_height, "Layer");
+            current_layer = doc.get_page(page).get_layer(layer);
+        }
+        is_first_page = false;
+
+        // Create image object
+        let image_bytes = img.into_raw();
+        let image = Image::from_dynamic_image(&::image::DynamicImage::ImageRgb8(
+            ::image::ImageBuffer::from_raw(width, height, image_bytes)
+                .ok_or("Şəkil buffer yaradılması xətası")?
+        ));
+
+        // Add image to PDF
+        image.add_to_layer(current_layer.clone(), ImageTransform {
+            translate_x: Some(x),
+            translate_y: Some(y),
+            scale_x: Some(scale),
+            scale_y: Some(scale),
+            rotate: None,
+            dpi: Some(300.0),
+        });
+    }
+
+    // Save PDF
+    let file = std::fs::File::create(output_path)
+        .map_err(|e| format!("PDF fayl yaradılması xətası: {}", e))?;
+    let mut buf_writer = BufWriter::new(file);
+    doc.save(&mut buf_writer)
+        .map_err(|e| format!("PDF saxlama xətası: {}", e))?;
+
+    Ok(())
+}
+
+/// Checks if a file extension is an image format
+fn is_image_extension(ext: &str) -> bool {
+    matches!(ext, "jpg" | "jpeg" | "png" | "gif" | "bmp" | "tiff" | "tif" | "webp")
+}
+
+/// Checks if a directory contains image files
+fn has_image_files(dir_path: &Path) -> Result<bool, std::io::Error> {
+    let entries = fs::read_dir(dir_path)?;
+    
+    for entry in entries {
+        let entry = entry?;
+        let path = entry.path();
+        
+        if path.is_file() {
+            if let Some(extension) = path.extension() {
+                let ext = extension.to_string_lossy().to_lowercase();
+                if is_image_extension(&ext) {
+                    return Ok(true);
+                }
+            }
+        }
+    }
+    
+    Ok(false)
+}
+
+/// Moves all files from subfolder to parent folder
+fn move_files_to_parent(parent_folder: &Path, subfolder: &Path, _pdf_name: &str) -> Result<(), String> {
+    match fs::read_dir(subfolder) {
+        Ok(entries) => {
+            for entry in entries {
+                if let Ok(entry) = entry {
+                    let source_path = entry.path();
+                    if source_path.is_file() {
+                        let file_name = entry.file_name();
+                        let dest_path = parent_folder.join(&file_name);
+                        
+                        if let Err(e) = fs::rename(&source_path, &dest_path) {
+                            eprintln!("Fayl köçürülmədi {}: {}", file_name.to_string_lossy(), e);
+                        }
+                    }
+                }
+            }
+        }
+        Err(e) => return Err(format!("Qovluq oxunması xətası: {}", e)),
+    }
+    
+    Ok(())
+}
+
+/// Removes empty directories recursively
+fn remove_empty_directories(root: &Path) -> Result<(), String> {
+    let entries = fs::read_dir(root)
+        .map_err(|e| format!("Qovluq oxunması xətası: {}", e))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("Entry oxunması xətası: {}", e))?;
+        let path = entry.path();
+        
+        if path.is_dir() {
+            // Recursively process subdirectories
+            if let Err(e) = remove_empty_directories(&path) {
+                eprintln!("Alt qovluq təmizlənmədi {}: {}", path.display(), e);
+            }
+            
+            // Try to remove if empty
+            if is_directory_empty(&path).unwrap_or(false) {
+                if let Err(e) = fs::remove_dir(&path) {
+                    eprintln!("Boş qovluq silinmədi {}: {}", path.display(), e);
+                }
+            }
+        }
+    }
+    
+    Ok(())
+}
+
+/// Checks if a directory is empty
+fn is_directory_empty(dir_path: &Path) -> Result<bool, std::io::Error> {
+    let mut entries = fs::read_dir(dir_path)?;
+    Ok(entries.next().is_none())
 } 
