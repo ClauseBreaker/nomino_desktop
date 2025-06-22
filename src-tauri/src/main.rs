@@ -39,6 +39,7 @@ use commands::{
     get_pdf_subfolders,
     copy_file_to_all_subfolders,
     change_pdf_dates,
+    merge_pdf_files,
     pause_process,
     resume_process,
     stop_process,
@@ -87,6 +88,9 @@ fn main() {
             
             // PDF date change operations
             change_pdf_dates,
+            
+            // PDF merger operations
+            merge_pdf_files,
             
             // Process control operations
             pause_process,

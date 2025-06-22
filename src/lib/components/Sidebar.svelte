@@ -6,6 +6,7 @@
 		FileSpreadsheet,
 		Copy,
 		Calendar,
+		Layers,
 		Settings 
 	} from 'lucide-svelte';
 	
@@ -42,6 +43,12 @@
 			icon: Calendar, 
 			label: 'PDF Tarix Dəyişdiricisi',
 			active: currentPath === '/pdf-date'
+		},
+		{ 
+			path: '/pdf-merge', 
+			icon: Layers, 
+			label: 'PDF Birləşdirici',
+			active: currentPath === '/pdf-merge'
 		},
 		{ 
 			path: '/settings', 
