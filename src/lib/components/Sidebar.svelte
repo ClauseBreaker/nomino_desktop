@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { goto } from '$app/navigation';
 	import { 
 		FolderEdit, 
@@ -14,7 +14,7 @@
 		{ 
 			path: '/', 
 			icon: FolderEdit, 
-			label: 'Qovluqların adını dəyişdirmək',
+			label: 'Qovluq Adlandırıcı',
 			active: currentPath === '/' 
 		},
 		{ 
@@ -43,7 +43,7 @@
 		}
 	];
 
-	function navigate(path) {
+	function navigate(path: string) {
 		goto(path);
 	}
 </script>
@@ -83,11 +83,4 @@
 			</button>
 		{/each}
 	</nav>
-
-	<!-- User Profile -->
-	<div class="mt-auto">
-		<div class="w-12 h-12 bg-gradient-to-br from-accent-green to-accent-blue rounded-full flex items-center justify-center">
-			<span class="text-white font-semibold text-sm">U</span>
-		</div>
-	</div>
 </aside> 

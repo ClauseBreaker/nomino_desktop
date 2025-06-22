@@ -3,7 +3,7 @@
  * 
  * This module contains all the backend commands that can be invoked from the frontend.
  * It handles file system operations, Excel processing, and folder renaming operations
- * with support for Azerbaijani alphabet sorting.
+ * with support for Azerbaijani alphabet sorting and process control.
  */
 
 use calamine::{open_workbook, DataType, Reader, Xlsx};
@@ -11,13 +11,78 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 use std::time::Duration;
-use tauri::{command, Window};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::Arc;
+use tauri::{command, Window, State, Manager};
 use tokio::time::sleep;
 
 #[cfg(windows)]
 use windows::core::PCWSTR;
 #[cfg(windows)]
 use windows::Win32::UI::Shell::StrCmpLogicalW;
+
+// ================================================================================================
+// Global Process State
+// ================================================================================================
+
+#[derive(Default)]
+pub struct ProcessState {
+    pub is_running: AtomicBool,
+    pub is_paused: AtomicBool,
+    pub should_stop: AtomicBool,
+    pub current_index: AtomicUsize,
+}
+
+impl ProcessState {
+    pub fn new() -> Self {
+        Self {
+            is_running: AtomicBool::new(false),
+            is_paused: AtomicBool::new(false),
+            should_stop: AtomicBool::new(false),
+            current_index: AtomicUsize::new(0),
+        }
+    }
+
+    pub fn start(&self) {
+        self.is_running.store(true, Ordering::Relaxed);
+        self.is_paused.store(false, Ordering::Relaxed);
+        self.should_stop.store(false, Ordering::Relaxed);
+        self.current_index.store(0, Ordering::Relaxed);
+    }
+
+    pub fn pause(&self) {
+        self.is_paused.store(true, Ordering::Relaxed);
+    }
+
+    pub fn resume(&self) {
+        self.is_paused.store(false, Ordering::Relaxed);
+    }
+
+    pub fn stop(&self) {
+        self.should_stop.store(true, Ordering::Relaxed);
+        self.is_running.store(false, Ordering::Relaxed);
+        self.is_paused.store(false, Ordering::Relaxed);
+    }
+
+    pub fn is_running(&self) -> bool {
+        self.is_running.load(Ordering::Relaxed)
+    }
+
+    pub fn is_paused(&self) -> bool {
+        self.is_paused.load(Ordering::Relaxed)
+    }
+
+    pub fn should_stop(&self) -> bool {
+        self.should_stop.load(Ordering::Relaxed)
+    }
+
+    pub fn reset(&self) {
+        self.is_running.store(false, Ordering::Relaxed);
+        self.is_paused.store(false, Ordering::Relaxed);
+        self.should_stop.store(false, Ordering::Relaxed);
+        self.current_index.store(0, Ordering::Relaxed);
+    }
+}
 
 // ================================================================================================
 // Data Structures
@@ -53,6 +118,53 @@ pub struct ProcessResult {
 }
 
 // ================================================================================================
+// Process Control Commands
+// ================================================================================================
+
+/// Pauses the current process
+#[command]
+pub fn pause_process(state: State<ProcessState>) -> Result<(), String> {
+    if state.is_running() {
+        state.pause();
+        Ok(())
+    } else {
+        Err("Proses işləmir".to_string())
+    }
+}
+
+/// Resumes the paused process
+#[command]
+pub fn resume_process(state: State<ProcessState>) -> Result<(), String> {
+    if state.is_running() && state.is_paused() {
+        state.resume();
+        Ok(())
+    } else {
+        Err("Proses fasilədə deyil".to_string())
+    }
+}
+
+/// Stops the current process
+#[command]
+pub fn stop_process(state: State<ProcessState>) -> Result<(), String> {
+    if state.is_running() {
+        state.stop();
+        Ok(())
+    } else {
+        Err("Proses işləmir".to_string())
+    }
+}
+
+/// Gets the current process status
+#[command]
+pub fn get_process_status(state: State<ProcessState>) -> Result<serde_json::Value, String> {
+    Ok(serde_json::json!({
+        "is_running": state.is_running(),
+        "is_paused": state.is_paused(),
+        "should_stop": state.should_stop()
+    }))
+}
+
+// ================================================================================================
 // Basic Commands
 // ================================================================================================
 
@@ -72,7 +184,7 @@ pub async fn get_files_in_directory(path: String) -> Result<Vec<FileInfo>, Strin
     let dir_path = Path::new(&path);
     
     if !dir_path.exists() {
-        return Err("Directory does not exist".to_string());
+        return Err("Qovluq mövcud deyil".to_string());
     }
 
     let mut files = Vec::new();
@@ -108,7 +220,7 @@ pub async fn get_folders_in_directory(path: String) -> Result<Vec<FileInfo>, Str
     let dir_path = Path::new(&path);
     
     if !dir_path.exists() {
-        return Err("Directory does not exist".to_string());
+        return Err("Qovluq mövcud deyil".to_string());
     }
 
     let mut folders = Vec::new();
@@ -149,7 +261,7 @@ pub async fn get_folders_with_sorting(
     let dir_path = Path::new(&path);
     
     if !dir_path.exists() {
-        return Err("Directory does not exist".to_string());
+        return Err("Qovluq mövcud deyil".to_string());
     }
 
     let mut folders = Vec::new();
@@ -229,7 +341,7 @@ pub async fn rename_files(
     let dir_path = Path::new(&directory);
     
     if !dir_path.exists() {
-        return Err("Directory does not exist".to_string());
+        return Err("Qovluq mövcud deyil".to_string());
     }
 
     let mut renamed_files = Vec::new();
@@ -252,7 +364,7 @@ pub async fn rename_files(
                                     renamed_files.push(format!("{} -> {}", old_name, new_name));
                                 }
                                 Err(e) => {
-                                    return Err(format!("Failed to rename {}: {}", old_name, e));
+                                    return Err(format!("Fayl adını dəyişmək mümkün olmadı {}: {}", old_name, e));
                                 }
                             }
                         }
@@ -276,7 +388,7 @@ pub async fn rename_folders(
     let dir_path = Path::new(&directory);
     
     if !dir_path.exists() {
-        return Err("Directory does not exist".to_string());
+        return Err("Qovluq mövcud deyil".to_string());
     }
 
     let mut renamed_folders = Vec::new();
@@ -299,7 +411,7 @@ pub async fn rename_folders(
                                     renamed_folders.push(format!("{} -> {}", old_name, new_name));
                                 }
                                 Err(e) => {
-                                    return Err(format!("Failed to rename folder {}: {}", old_name, e));
+                                    return Err(format!("Qovluq adını dəyişmək mümkün olmadı {}: {}", old_name, e));
                                 }
                             }
                         }
@@ -313,7 +425,7 @@ pub async fn rename_folders(
     Ok(renamed_folders)
 }
 
-/// Main folder renaming operation using Excel data
+/// Main folder renaming operation using Excel data with process control
 #[command]
 pub async fn rename_folders_from_excel(
     window: Window,
@@ -324,43 +436,75 @@ pub async fn rename_folders_from_excel(
     column: String,
     _sort_order: String,
     folders: Vec<String>,
+    state: State<'_, ProcessState>,
 ) -> Result<Vec<String>, String> {
     let source_dir = Path::new(&source_path);
     let dest_dir = Path::new(&destination_path);
     
     // Validate directories
     if !source_dir.exists() {
-        return Err("Source directory does not exist".to_string());
+        return Err("Əsas qovluq mövcud deyil".to_string());
     }
     
     if !dest_dir.exists() {
-        return Err("Destination directory does not exist".to_string());
+        return Err("Təyinat qovluq mövcud deyil".to_string());
     }
+    
+    // Start the process
+    state.start();
     
     // Send initial progress
-    emit_progress(&window, 0, folders.len(), "Reading Excel file...", "Loading names from Excel");
+    emit_progress(&window, 0, folders.len(), "Excel faylı oxunur...", "Excel-dən adlar yüklənir");
     
     // Read names from Excel file
-    let excel_names = read_excel_names(&excel_path, start_row, &column)?;
+    let excel_names = match read_excel_names(&excel_path, start_row, &column) {
+        Ok(names) => names,
+        Err(e) => {
+            state.reset();
+            return Err(e);
+        }
+    };
     
     if excel_names.is_empty() {
-        return Err("No names found in Excel file".to_string());
+        state.reset();
+        return Err("Excel faylında heç bir ad tapılmadı".to_string());
     }
     
-    emit_progress(&window, 0, folders.len(), "Starting process...", &format!("{} folders to process", folders.len()));
+    emit_progress(&window, 0, folders.len(), "Proses başlanır...", &format!("{} qovluq işlənəcək", folders.len()));
     
     let mut results = Vec::new();
     
     // Process each folder with corresponding Excel name
     for (index, folder_name) in folders.iter().enumerate() {
-        let current = index + 1;
+        // Check if process should stop
+        if state.should_stop() {
+            emit_progress(&window, index, folders.len(), "Dayandırıldı", "Proses dayandırıldı");
+            state.reset();
+            return Ok(results);
+        }
         
-        emit_progress(&window, current, folders.len(), &format!("Processing folder: {}", folder_name), &format!("{}/{} folders", current, folders.len()));
+        // Handle pause
+        while state.is_paused() && !state.should_stop() {
+            emit_progress(&window, index, folders.len(), "Fasilə verildi", "Proses fasilədədir");
+            sleep(Duration::from_millis(100)).await;
+        }
+        
+        // Check again after pause
+        if state.should_stop() {
+            emit_progress(&window, index, folders.len(), "Dayandırıldı", "Proses dayandırıldı");
+            state.reset();
+            return Ok(results);
+        }
+        
+        let current = index + 1;
+        state.current_index.store(current, Ordering::Relaxed);
+        
+        emit_progress(&window, current, folders.len(), &format!("İşlənən qovluq: {}", folder_name), &format!("{}/{} qovluq", current, folders.len()));
         
         let old_folder_path = source_dir.join(folder_name);
         
         if !old_folder_path.exists() {
-            let error_msg = format!("❌ Error: Folder '{}' not found", folder_name);
+            let error_msg = format!("❌ Xəta: '{}' qovluğu tapılmadı", folder_name);
             results.push(error_msg.clone());
             
             emit_process_result(&window, false, &error_msg, folder_name, "");
@@ -371,7 +515,7 @@ pub async fn rename_folders_from_excel(
         let new_name = if index < excel_names.len() {
             &excel_names[index]
         } else {
-            let error_msg = format!("❌ Error: No Excel name for folder '{}' (row {})", folder_name, start_row + index as u32);
+            let error_msg = format!("❌ Xəta: '{}' qovluğu üçün Excel adı yoxdur (sətir {})", folder_name, start_row + index as u32);
             results.push(error_msg.clone());
             
             emit_process_result(&window, false, &error_msg, folder_name, "");
@@ -388,13 +532,13 @@ pub async fn rename_folders_from_excel(
         // Move and rename folder
         match move_folder(&old_folder_path, &new_folder_path) {
             Ok(_) => {
-                let success_msg = format!("✅ Success: '{}' → '{}'", folder_name, safe_new_name);
+                let success_msg = format!("✅ Uğur: '{}' → '{}'", folder_name, safe_new_name);
                 results.push(success_msg.clone());
                 
                 emit_process_result(&window, true, &success_msg, folder_name, &safe_new_name);
             }
             Err(e) => {
-                let error_msg = format!("❌ Error: Failed to move '{}': {}", folder_name, e);
+                let error_msg = format!("❌ Xəta: '{}' köçürülə bilmədi: {}", folder_name, e);
                 results.push(error_msg.clone());
                 
                 emit_process_result(&window, false, &error_msg, folder_name, &safe_new_name);
@@ -403,8 +547,11 @@ pub async fn rename_folders_from_excel(
     }
     
     // Send completion
-    emit_progress(&window, folders.len(), folders.len(), "Completed!", "All folders processed");
+    if !state.should_stop() {
+        emit_progress(&window, folders.len(), folders.len(), "Tamamlandı!", "Bütün qovluqlar işləndi");
+    }
     
+    state.reset();
     Ok(results)
 }
 
@@ -436,7 +583,7 @@ pub async fn create_pdf(
     // TODO: Implement PDF creation functionality
     // This would require a PDF library like `printpdf` or similar
     Ok(format!(
-        "PDF creation scheduled: {} files -> {} (title: {})",
+        "PDF yaradılması planlaşdırıldı: {} fayl -> {} (başlıq: {})",
         files.len(),
         output_path,
         title
@@ -484,7 +631,7 @@ fn sanitize_filename(name: &str) -> String {
     
     // Ensure the name is not empty
     if result.is_empty() {
-        result = "Unnamed_Folder".to_string();
+        result = "Adsız_Qovluq".to_string();
     }
     
     result
@@ -622,15 +769,15 @@ fn get_folder_size(path: &str) -> Result<u64, std::io::Error> {
 /// Reads names from Excel file at specified column and starting row
 fn read_excel_names(excel_path: &str, start_row: u32, column: &str) -> Result<Vec<String>, String> {
     let mut workbook: Xlsx<_> = open_workbook(excel_path)
-        .map_err(|e| format!("Failed to open Excel file: {}", e))?;
+        .map_err(|e| format!("Excel faylını açmaq mümkün olmadı: {}", e))?;
     
     let worksheet_name = workbook.sheet_names().first()
-        .ok_or("No worksheets found in Excel file")?
+        .ok_or("Excel faylında heç bir iş vərəqi tapılmadı")?
         .clone();
     
     let range = workbook.worksheet_range(&worksheet_name)
-        .ok_or("Failed to get worksheet range")?
-        .map_err(|e| format!("Failed to read worksheet: {}", e))?;
+        .ok_or("İş vərəqinin sahəsini əldə etmək mümkün olmadı")?
+        .map_err(|e| format!("İş vərəqini oxumaq mümkün olmadı: {}", e))?;
     
     let column_index = column_letter_to_index(column)?;
     let mut names = Vec::new();
@@ -666,7 +813,7 @@ fn column_letter_to_index(column: &str) -> Result<usize, String> {
     
     for ch in column.chars() {
         if !ch.is_ascii_alphabetic() {
-            return Err(format!("Invalid column letter: {}", column));
+            return Err(format!("Yanlış sütun hərfi: {}", column));
         }
         result = result * 26 + (ch as usize - 'A' as usize + 1);
     }
@@ -683,7 +830,7 @@ fn move_folder(source: &Path, destination: &Path) -> Result<(), String> {
             // If rename fails, copy and delete
             copy_dir_recursive(source, destination)?;
             fs::remove_dir_all(source)
-                .map_err(|e| format!("Failed to remove source folder: {}", e))?;
+                .map_err(|e| format!("Əsas qovluğu silmək mümkün olmadı: {}", e))?;
             Ok(())
         }
     }
@@ -692,11 +839,11 @@ fn move_folder(source: &Path, destination: &Path) -> Result<(), String> {
 /// Recursively copies a directory
 fn copy_dir_recursive(source: &Path, destination: &Path) -> Result<(), String> {
     fs::create_dir_all(destination)
-        .map_err(|e| format!("Failed to create destination directory: {}", e))?;
+        .map_err(|e| format!("Təyinat qovluq yaratmaq mümkün olmadı: {}", e))?;
     
     for entry in fs::read_dir(source)
-        .map_err(|e| format!("Failed to read source directory: {}", e))? {
-        let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
+        .map_err(|e| format!("Əsas qovluğu oxumaq mümkün olmadı: {}", e))? {
+        let entry = entry.map_err(|e| format!("Qovluq girişini oxumaq mümkün olmadı: {}", e))?;
         let source_path = entry.path();
         let dest_path = destination.join(entry.file_name());
         
@@ -704,7 +851,7 @@ fn copy_dir_recursive(source: &Path, destination: &Path) -> Result<(), String> {
             copy_dir_recursive(&source_path, &dest_path)?;
         } else {
             fs::copy(&source_path, &dest_path)
-                .map_err(|e| format!("Failed to copy file: {}", e))?;
+                .map_err(|e| format!("Faylı kopyalamaq mümkün olmadı: {}", e))?;
         }
     }
     

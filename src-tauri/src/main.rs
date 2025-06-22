@@ -14,7 +14,7 @@
  * License: MIT
  */
 
-// Prevents additional console window on Windows in release builds
+// Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 // Import application modules
@@ -22,6 +22,7 @@ mod commands;
 
 // Import command functions
 use commands::{
+    ProcessState,
     greet,
     get_files_in_directory,
     get_folders_in_directory, 
@@ -30,7 +31,11 @@ use commands::{
     rename_files,
     rename_folders,
     rename_folders_from_excel,
-    create_pdf
+    create_pdf,
+    pause_process,
+    resume_process,
+    stop_process,
+    get_process_status
 };
 
 /**
@@ -42,6 +47,7 @@ use commands::{
 fn main() {
     // Configure and build the Tauri application
     let app = tauri::Builder::default()
+        .manage(ProcessState::new())
         .invoke_handler(tauri::generate_handler![
             // Basic utilities
             greet,
@@ -60,7 +66,13 @@ fn main() {
             rename_folders_from_excel,
             
             // Document operations
-            create_pdf
+            create_pdf,
+            
+            // Process control operations
+            pause_process,
+            resume_process,
+            stop_process,
+            get_process_status
         ])
         .build(tauri::generate_context!());
 

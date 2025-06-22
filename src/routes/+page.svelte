@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { onMount } from 'svelte';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { open } from '@tauri-apps/api/dialog';
@@ -14,32 +14,34 @@
 		CheckCircle,
 		AlertCircle,
 		ArrowRight,
-		Settings
+		Settings,
+		HelpCircle,
+		X,
+		Square
 	} from 'lucide-svelte';
 
 	// State variables
 	let sourceFolderPath = '';
 	let destinationFolderPath = '';
 	let excelFilePath = '';
-	let folders = [];
+	let folders: any[] = [];
 	let sortOrder = 'default'; // default, numeric, azerbaijani
 	let excelStartRow = 1;
 	let excelColumn = 'A';
 	let isProcessing = false;
 	let isPaused = false;
 	let progress = 0;
-	let processLog = [];
+	let processLog: any[] = [];
 	let currentStep = '';
+	let showHelpModal = false;
 
-	// Sort options
+	// Sort options with corrected translations
 	const sortOptions = [
-		{ value: 'default', label: 'Orijinal sıralama (Original filesystem order)' },
-		{ value: 'name', label: 'Ada görə (By Name)' },
-		{ value: 'date', label: 'Tarixə görə (By Date)' },
-		{ value: 'size', label: 'Ölçüyə görə (By Size)' }
+		{ value: 'default', label: 'Orijinal' },
+		{ value: 'name', label: 'Ada görə' },
+		{ value: 'date', label: 'Tarixə görə' },
+		{ value: 'size', label: 'Ölçüyə görə' }
 	];
-
-
 
 	onMount(() => {
 		// Check if Tauri is available
@@ -53,15 +55,15 @@
 		// Listen for progress updates
 		if (isTauriApp) {
 			import('@tauri-apps/api/event').then(({ listen }) => {
-				listen('progress-update', (event) => {
-					const data = event.payload;
-					progress = data.percentage;
+				listen('progress-update', (event: any) => {
+					const data = event.payload as any;
+					progress = Math.round(data.percentage); // Make progress integer
 					currentStep = data.current_step;
 					console.log('Progress:', data);
 				});
 				
-				listen('process-result', (event) => {
-					const data = event.payload;
+				listen('process-result', (event: any) => {
+					const data = event.payload as any;
 					processLog = [...processLog, {
 						type: data.success ? 'success' : 'error',
 						message: data.message,
@@ -92,7 +94,7 @@
 			const selected = await open({
 				directory: true,
 				multiple: false,
-				title: 'Mənbə qovluğunu seçin (Select Source Folder)'
+				title: 'Əsas qovluğunu seçin (Select Source Folder)'
 			});
 			
 			console.log('Dialog result:', selected);
@@ -118,7 +120,7 @@
 			const selected = await open({
 				directory: true,
 				multiple: false,
-				title: 'Hədəf qovluğunu seçin (Select Destination Folder)'
+				title: 'Təyinat qovluğunu seçin (Select Destination Folder)'
 			});
 			
 			if (selected && selected !== null && selected !== '') {
@@ -126,7 +128,7 @@
 			}
 		} catch (error) {
 			console.error('Failed to select destination folder:', error);
-			alert(`Hədəf qovluq seçmə xətası: ${error}`);
+			alert(`Təyinat qovluq seçmə xətası: ${error}`);
 		}
 	}
 
@@ -164,18 +166,16 @@
 				path: sourceFolderPath,
 				sortOrder: sortOrder
 			});
-			folders = result;
+			folders = result as any[];
 		} catch (error) {
 			console.error('Failed to load folders:', error);
 			folders = [];
 		}
 	}
 
-
-
 	async function startProcessing() {
 		if (!sourceFolderPath || !destinationFolderPath || !excelFilePath || folders.length === 0) {
-			alert('Bütün sahələri doldurun (Fill all required fields)');
+			alert('Bütün sahələri doldurun');
 			return;
 		}
 
@@ -183,7 +183,7 @@
 		isPaused = false;
 		progress = 0;
 		processLog = [];
-		currentStep = 'Başlanılır... (Starting...)';
+		currentStep = 'Başlanılır...';
 
 		try {
 			const result = await invoke('rename_folders_from_excel', {
@@ -193,16 +193,16 @@
 				startRow: excelStartRow,
 				column: excelColumn,
 				sortOrder: sortOrder,
-				folders: folders.map(f => f.name)
+				folders: folders.map((f: any) => f.name)
 			});
 			
 			// Process completed successfully
-			currentStep = 'Tamamlandı! (Completed!)';
+			currentStep = 'Tamamlandı!';
 			console.log('Process completed:', result);
 			
 		} catch (error) {
 			console.error('Process failed:', error);
-			currentStep = 'Xəta baş verdi (Error occurred)';
+			currentStep = 'Xəta baş verdi';
 			processLog = [...processLog, {
 				type: 'error',
 				message: `❌ Xəta: ${error}`,
@@ -210,19 +210,39 @@
 			}];
 		} finally {
 			isProcessing = false;
+			isPaused = false;
 		}
 	}
 
-
-
-	function pauseProcessing() {
-		isPaused = !isPaused;
+	async function pauseProcessing() {
+		if (!isProcessing) return;
+		
+		try {
+			if (isPaused) {
+				await invoke('resume_process');
+				isPaused = false;
+				currentStep = 'Davam edir...';
+			} else {
+				await invoke('pause_process');
+				isPaused = true;
+				currentStep = 'Fasilə verildi';
+			}
+		} catch (error) {
+			console.error('Failed to pause/resume:', error);
+		}
 	}
 
-	function stopProcessing() {
-		isProcessing = false;
-		isPaused = false;
-		currentStep = 'Dayandırıldı (Stopped)';
+	async function stopProcessing() {
+		if (!isProcessing) return;
+		
+		try {
+			await invoke('stop_process');
+			isProcessing = false;
+			isPaused = false;
+			currentStep = 'Dayandırıldı';
+		} catch (error) {
+			console.error('Failed to stop process:', error);
+		}
 	}
 
 	function resetProcess() {
@@ -241,8 +261,16 @@
 		sortOrder = 'default';
 	}
 
+	function showHelp() {
+		showHelpModal = true;
+	}
+
+	function closeHelp() {
+		showHelpModal = false;
+	}
+
 	// Format column input to uppercase Latin letters only
-	function formatColumnInput(event) {
+	function formatColumnInput(event: any) {
 		const input = event.target;
 		let value = input.value;
 		
@@ -264,18 +292,16 @@
 		loadFolders();
 	}
 
-	function getFileName(path) {
+	function getFileName(path: string) {
 		return path.split(/[\\/]/).pop() || path;
 	}
-
-
 </script>
 
 <div class="space-y-6">
 	<!-- Header -->
 	<div class="flex items-center justify-between">
 		<div>
-			<h1 class="text-3xl font-bold text-text-primary mb-2">Qovluqların Adını Dəyişdirmək</h1>
+			<h1 class="text-3xl font-bold text-text-primary mb-2">Qovluq Adlandırıcı</h1>
 			<p class="text-text-secondary">Excel faylından istifadə edərək qovluqların adlarını dəyişdirin</p>
 			
 			{#if !isTauriApp}
@@ -290,11 +316,18 @@
 		</div>
 		
 		{#if !isProcessing}
-			<div class="flex space-x-2">
+			<div class="flex items-center space-x-2">
+				<button 
+					on:click={showHelp}
+					class="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 text-text-muted hover:text-accent-orange hover:bg-accent-orange/10 hover:scale-105 border border-transparent hover:border-accent-orange"
+					title="Kömək"
+				>
+					<HelpCircle size={20} />
+				</button>
 				<button 
 					on:click={resetProcess}
 					class="btn-secondary flex items-center space-x-2"
-					title="Sıfırla (Reset)"
+					title="Sıfırla"
 				>
 					<RotateCcw size={16} />
 					<span>Sıfırla</span>
@@ -309,7 +342,7 @@
 		<div class="card">
 			<h3 class="text-lg font-semibold text-text-primary mb-4 flex items-center space-x-2">
 				<FolderOpen size={20} class="text-accent-cyan" />
-				<span>Mənbə Qovluğu (Source Folder)</span>
+				<span>Əsas Qovluq</span>
 			</h3>
 			
 			<div class="space-y-4">
@@ -319,7 +352,7 @@
 						class="btn-primary w-full"
 						disabled={isProcessing}
 					>
-						Qovluq Seçin (Select Folder)
+						Qovluğu Seçin
 					</button>
 					{#if sourceFolderPath}
 						<p class="text-text-secondary text-sm mt-2 break-all">{sourceFolderPath}</p>
@@ -330,7 +363,7 @@
 				{#if sourceFolderPath}
 					<div>
 						<label class="block text-text-secondary text-sm font-medium mb-2">
-							Sıralama Qayda (Sort Order)
+							Sıralama Qaydası
 						</label>
 						<select 
 							bind:value={sortOrder}
@@ -350,21 +383,21 @@
 		<div class="card">
 			<h3 class="text-lg font-semibold text-text-primary mb-4 flex items-center space-x-2">
 				<Settings size={20} class="text-accent-orange" />
-				<span>Parametrlər (Settings)</span>
+				<span>Parametrlər</span>
 			</h3>
 			
 			<div class="space-y-4">
 				<!-- Destination Folder -->
 				<div>
 					<label class="block text-text-secondary text-sm font-medium mb-2">
-						Hədəf Qovluğu (Destination Folder)
+						Təyinat Qovluq
 					</label>
 					<button
 						on:click={selectDestinationFolder}
 						class="btn-secondary w-full"
 						disabled={isProcessing}
 					>
-						Hədəf Seçin (Select Destination)
+						Qovluğu Seçin
 					</button>
 					{#if destinationFolderPath}
 						<p class="text-text-secondary text-sm mt-2 break-all">{destinationFolderPath}</p>
@@ -374,7 +407,7 @@
 				<!-- Excel File -->
 				<div>
 					<label class="block text-text-secondary text-sm font-medium mb-2">
-						Excel Faylı (Excel File)
+						Excel Faylı
 					</label>
 					<button
 						on:click={selectExcelFile}
@@ -394,7 +427,7 @@
 					<div class="grid grid-cols-2 gap-4">
 						<div>
 							<label class="block text-text-secondary text-sm font-medium mb-2">
-								Başlanğıc Sətir (Start Row)
+								Başlanğıc Sətir
 							</label>
 							<input
 								bind:value={excelStartRow}
@@ -407,7 +440,7 @@
 						</div>
 						<div>
 							<label class="block text-text-secondary text-sm font-medium mb-2">
-								Sütun (Column)
+								Sütun
 							</label>
 							<input
 								bind:value={excelColumn}
@@ -452,7 +485,7 @@
 	<!-- Control Panel -->
 	<div class="card">
 		<div class="flex items-center justify-between mb-4">
-			<h3 class="text-lg font-semibold text-text-primary">İdarəetmə (Control)</h3>
+			<h3 class="text-lg font-semibold text-text-primary">İdarəetmə</h3>
 			
 			<div class="flex space-x-2">
 				{#if !isProcessing}
@@ -462,7 +495,7 @@
 						class="btn-primary flex items-center space-x-2 disabled:opacity-50"
 					>
 						<Play size={16} />
-						<span>Başla (Start)</span>
+						<span>Başlat</span>
 					</button>
 				{:else}
 					<button
@@ -476,6 +509,7 @@
 						on:click={stopProcessing}
 						class="btn-secondary bg-accent-red hover:bg-red-600 flex items-center space-x-2"
 					>
+						<Square size={16} />
 						<span>Dayandır</span>
 					</button>
 				{/if}
@@ -486,12 +520,12 @@
 		{#if isProcessing || progress > 0}
 			<div class="space-y-3">
 				<div class="flex justify-between text-sm">
-					<span class="text-text-secondary">Gedişat (Progress): {progress}%</span>
+					<span class="text-text-secondary">Gedişat: {progress}%</span>
 					<span class="text-text-primary">{currentStep}</span>
 				</div>
 				<div class="w-full bg-dark-secondary rounded-full h-3">
 					<div 
-						class="bg-gradient-to-r from-accent-cyan to-accent-orange h-3 rounded-full transition-all duration-300"
+						class="bg-accent-orange h-3 rounded-full transition-all duration-300"
 						style="width: {progress}%"
 					></div>
 				</div>
@@ -502,7 +536,7 @@
 	<!-- Process Log -->
 	{#if processLog.length > 0}
 		<div class="card">
-			<h3 class="text-lg font-semibold text-text-primary mb-4">Proses Jurnalı (Process Log)</h3>
+			<h3 class="text-lg font-semibold text-text-primary mb-4">Proses Jurnalı</h3>
 			<div class="max-h-64 overflow-y-auto space-y-2">
 				{#each processLog as log}
 					<div class="flex items-start space-x-3 p-3 bg-dark-secondary rounded-lg">
@@ -520,4 +554,83 @@
 			</div>
 		</div>
 	{/if}
-</div> 
+</div>
+
+<!-- Help Modal -->
+{#if showHelpModal}
+	<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" on:click={closeHelp}>
+		<div class="bg-dark-card border border-dark-border rounded-xl p-6 max-w-2xl w-full m-4 max-h-[80vh] overflow-y-auto" on:click|stopPropagation>
+			<div class="flex items-center justify-between mb-4">
+				<h2 class="text-xl font-bold text-text-primary">Qovluq Adlandırıcı - İstifadəçi Bələdçisi</h2>
+				<button 
+					on:click={closeHelp}
+					class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-dark-secondary transition-colors"
+				>
+					<X size={18} class="text-text-muted" />
+				</button>
+			</div>
+			
+			<div class="space-y-4 text-text-secondary text-sm">
+				<div>
+					<h3 class="text-accent-orange font-semibold mb-2">Bu modul nə edir?</h3>
+					<p>Bu modul sizə bir Excel faylındakı məlumatlardan istifadə edərək bir neçə qovluğun adını dəyişməyə imkan verir. Excel faylından qovluq adlarını oxuyur, mövcud qovluqların adını uyğun olaraq dəyişdirir və onları təyinat qovluğuna köçürür.</p>
+				</div>
+				
+				<div>
+					<h3 class="text-accent-orange font-semibold mb-2">Addım-addım istifadə qaydası:</h3>
+					<ol class="list-decimal list-inside space-y-2 pl-4">
+						<li><strong>Mənbə Qovluğu Seçin:</strong> Adını dəyişmək istədiyiniz alt qovluqları ehtiva edən əsas qovluğu seçin.</li>
+						<li><strong>Sıralama Seçin:</strong> Qovluqların necə sıralanacağını seçin:
+							<ul class="list-disc list-inside mt-1 ml-4">
+								<li>Orijinal (dəyişməz)</li>
+								<li>Ada görə</li>
+								<li>Tarixə görə</li>
+								<li>Ölçüyə görə</li>
+							</ul>
+						</li>
+						<li><strong>Təyinat Qovluğunu Seçin:</strong> Adları dəyişdirilmiş qovluqların köçürüləcəyi qovluğu seçin.</li>
+						<li><strong>Excel Faylını Seçin:</strong> Yeni adları ehtiva edən Excel faylını seçin (.xlsx, .xls, .csv formatlarında).</li>
+						<li><strong>Excel Ayarlarını Tənzimləyin:</strong>
+							<ul class="list-disc list-inside mt-1 ml-4">
+								<li>Başlanğıc Sətri: Oxumağa başlanacaq sətir nömrəsi (standart: 1)</li>
+								<li>Sütun: Adların yerləşdiyi sütun (A, B, C və s.)</li>
+							</ul>
+						</li>
+						<li><strong>Ön Baxış:</strong> Emal olunacaq qovluqları öncədən gözdən keçirin.</li>
+						<li><strong>Prosesi Başladın:</strong> "Başlat" düyməsinə klikləyərək adların dəyişdirilməsi və köçürülmə prosesinə başlayın.</li>
+					</ol>
+				</div>
+				
+				<div>
+					<h3 class="text-accent-orange font-semibold mb-2">Prosesə Nəzarət Düymələri:</h3>
+					<ul class="list-disc list-inside space-y-1 pl-4">
+						<li><strong>Fasilə / Davam Et:</strong> Prosesi müvəqqəti olaraq dayandırıb sonra davam edə bilərsiniz.</li>
+						<li><strong>Dayandır:</strong> Prosesi tamamilə dayandırır (yenidən başlamaq mümkün deyil).</li>
+						<li><strong>Sıfırla:</strong> Bütün seçimləri təmizləyir və yenidən başlamağa imkan verir.</li>
+					</ul>
+				</div>
+				
+				<div>
+					<h3 class="text-accent-orange font-semibold mb-2">Vacib Qeydlər:</h3>
+					<ul class="list-disc list-inside space-y-1 pl-4">
+						<li>Excel faylındakı adların sayı, mənbə qovluğundakı alt qovluqların sayı ilə eyni olmalıdır.</li>
+						<li>Qovluqlar seçilmiş sıralama üsuluna əsasən emal olunur.</li>
+						<li>Adlarda icazəsiz simvollar avtomatik olaraq alt xətlərlə (_) əvəz edilir.</li>
+						<li>Proses jurnalı hər əməliyyat barədə ətraflı məlumat verir.</li>
+						<li>Qovluqlar təyinat yerinə köçürülür (surət çıxarılmır).</li>
+					</ul>
+				</div>
+				
+				<div>
+					<h3 class="text-accent-orange font-semibold mb-2">Problemlərin Həlli:</h3>
+					<ul class="list-disc list-inside space-y-1 pl-4">
+						<li>Həm mənbə, həm də təyinat qovluqlarının mövcud və əlçatan olduğundan əmin olun.</li>
+						<li>Excel faylının başqa proqramda açıq olmadığından əmin olun.</li>
+						<li>Göstərilən sütun və sətrin gözlənilən məlumatı ehtiva etdiyini yoxlayın.</li>
+						<li>Təyinat qovluğuna yazmaq icazənizin olduğunu təsdiqləyin.</li>
+					</ul>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if} 

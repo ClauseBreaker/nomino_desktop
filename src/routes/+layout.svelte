@@ -72,13 +72,13 @@
 	<div class="flex-1 flex flex-col min-w-0">
 		<!-- Title Bar with Window Controls -->
 		{#if isTauriApp}
-			<div class="h-10 bg-dark-bg border-b border-dark-border flex items-center justify-end px-4 drag-region">
-				<div class="flex space-x-1 no-drag">
+			<div class="h-10 bg-dark-bg border-b border-dark-border flex items-center justify-end px-4" data-tauri-drag-region>
+				<div class="flex space-x-1">
 					<!-- Minimize Button -->
 					<button
 						on:click={minimizeWindow}
 						class="w-12 h-8 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-600 transition-colors duration-200"
-						title="Свернуть"
+						title="Kiçilt"
 					>
 						<Minus size={16} />
 					</button>
@@ -87,7 +87,7 @@
 					<button
 						on:click={toggleMaximize}
 						class="w-12 h-8 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-600 transition-colors duration-200"
-						title={isMaximized ? "Восстановить" : "Развернуть"}
+						title={isMaximized ? "Bərpa et" : "Böyüt"}
 					>
 						{#if isMaximized}
 							<div class="relative w-4 h-4 flex items-center justify-center">
@@ -104,7 +104,7 @@
 					<button
 						on:click={closeWindow}
 						class="w-12 h-8 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-red-600 transition-colors duration-200"
-						title="Закрыть"
+						title="Bağla"
 					>
 						<X size={16} />
 					</button>
@@ -116,5 +116,14 @@
 		<main class="flex-1 overflow-auto p-6">
 			<slot />
 		</main>
+		
+		<!-- Footer -->
+		<footer class="border-t border-dark-border bg-dark-sidebar px-6 py-3">
+			<div class="flex items-center justify-center">
+				<p class="text-text-muted text-xs">
+					© 2024 Nomino - File Management Tool. All rights reserved.
+				</p>
+			</div>
+		</footer>
 	</div>
 </div> 
