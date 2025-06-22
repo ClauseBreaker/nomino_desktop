@@ -328,7 +328,7 @@
 				<!-- Subfolder Name -->
 				<div>
 					<label class="block text-text-secondary text-sm font-medium mb-2">
-						Şəkil Qovluğu Adı
+						Şəkil Qovluğunun Adı
 					</label>
 					<input
 						bind:value={subfolderName}
@@ -462,8 +462,8 @@
 
 <!-- Help Modal -->
 {#if showHelpModal}
-	<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-		<div class="bg-dark-card rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+	<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" on:click={closeHelp}>
+		<div class="bg-dark-card rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto" on:click|stopPropagation>
 			<div class="flex items-center justify-between p-6 border-b border-dark-border">
 				<h2 class="text-xl font-bold text-text-primary">📚 PDF Yaradılması Modulu</h2>
 				<button 
@@ -474,58 +474,106 @@
 				</button>
 			</div>
 			
-			<div class="p-6 space-y-4 text-text-secondary">
+			<div class="p-6 space-y-6 text-text-secondary">
 				<div>
-					<h3 class="text-lg font-semibold text-text-primary mb-2">🎯 BU MODUL NƏ EDİR?</h3>
-					<p>Bu modul hər alt qovluqdakı şəkilləri PDF faylına çevirib, fayl strukturunu təmizləyir.</p>
+					<h3 class="text-lg font-semibold text-text-primary mb-3 flex items-center space-x-2">
+						<span>🎯</span>
+						<span>Modulun Təyinatı</span>
+					</h3>
+					<p class="leading-relaxed">Bu modul əsas qovluqdakı alt qovluqları yoxlayaraq, hər bir alt qovluğun içindəki şəkilləri birləşdirilmiş PDF sənədinə çevirir, artıq faylları silir və qovluq strukturunu səliqəyə salır.</p>
 				</div>
 				
 				<div>
-					<h3 class="text-lg font-semibold text-text-primary mb-2">📋 NECƏ İŞLƏYİR?</h3>
-					<ol class="list-decimal list-inside space-y-1">
-						<li>Əsas qovluğu seçin - burada çoxlu alt qovluqlar var</li>
-						<li>Şəkil qovluğu adını yazın (məs: "images", "photos")</li>
-						<li>Silinəcək fayl adlarını yazın (məs: desktop.ini, thumbs.db)</li>
-						<li>"PDF Yaradılması" düyməsini basın</li>
-					</ol>
-				</div>
-				
-				<div>
-					<h3 class="text-lg font-semibold text-text-primary mb-2">💡 MİSAL:</h3>
-					<div class="bg-dark-secondary p-3 rounded">
-						<p><strong>Əsas qovluq:</strong> "Məhsullar"</p>
-						<p><strong>Alt qovluqlar:</strong> "Məhsul1", "Məhsul2", "Məhsul3"</p>
-						<p><strong>Hər birində "images" qovluğu var:</strong> şəkil1.jpg, şəkil2.jpg...</p>
-						<br>
-						<p><strong>Nəticə:</strong></p>
-						<ul class="list-disc list-inside ml-4 space-y-1">
-							<li>"Məhsul1_picture.pdf" yaradılacaq</li>
-							<li>Bütün şəkillər PDF-ə əlavə olunacaq</li>
-							<li>Orijinal şəkillər silinəcək</li>
-							<li>PDF və digər fayllar "Məhsul1" qovluğuna köçürüləcək</li>
-							<li>"images" qovluğu silinəcək</li>
-						</ul>
+					<h3 class="text-lg font-semibold text-text-primary mb-3 flex items-center space-x-2">
+						<span>📋</span>
+						<span>İş Prinsipi — Addım-addım</span>
+					</h3>
+					<div class="space-y-3">
+						<div class="flex items-start space-x-3">
+							<span class="bg-accent-orange text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold mt-0.5">1</span>
+							<div>
+								<p class="font-medium text-text-primary">Əsas qovluğu seçin</p>
+								<p class="text-sm text-text-muted">Modul, bu qovluğun içindəki bütün alt qovluqlarla işləyəcək.</p>
+							</div>
+						</div>
+						<div class="flex items-start space-x-3">
+							<span class="bg-accent-orange text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold mt-0.5">2</span>
+							<div>
+								<p class="font-medium text-text-primary">Şəkil qovluğunun adını daxil edin</p>
+								<p class="text-sm text-text-muted">(məsələn: images, photos)<br>→ Modul bu adlı qovluqları hər alt qovluqda axtaracaq.</p>
+							</div>
+						</div>
+						<div class="flex items-start space-x-3">
+							<span class="bg-accent-orange text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold mt-0.5">3</span>
+							<div>
+								<p class="font-medium text-text-primary">Silinməli fayl adlarını daxil edin</p>
+								<p class="text-sm text-text-muted">(məsələn: desktop.ini, thumbs.db)<br>→ Bu fayllar avtomatik silinəcək.</p>
+							</div>
+						</div>
+						<div class="flex items-start space-x-3">
+							<span class="bg-accent-orange text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold mt-0.5">4</span>
+							<div>
+								<p class="font-medium text-text-primary">"PDF Yarat" düyməsinə klikləyin</p>
+							</div>
+						</div>
 					</div>
 				</div>
 				
 				<div>
-					<h3 class="text-lg font-semibold text-text-primary mb-2">⚠️ QEYD:</h3>
-					<ul class="list-disc list-inside space-y-1">
-						<li>Şəkil formatları: JPG, PNG, BMP, GIF, TIFF, WEBP</li>
-						<li>PDF A4 formatında yaradılır</li>
-						<li>Boş qovluqlar avtomatik silinir</li>
-						<li class="text-accent-red font-medium">Proses geri qaytarıla bilməz!</li>
-					</ul>
+					<h3 class="text-lg font-semibold text-text-primary mb-3 flex items-center space-x-2">
+						<span>💡</span>
+						<span>İstifadə Nümunəsi</span>
+					</h3>
+					<div class="bg-dark-secondary p-4 rounded-lg space-y-3">
+						<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div>
+								<p class="text-accent-cyan font-medium mb-2">📁 Başlanğıc struktur:</p>
+								<div class="text-sm space-y-1 text-text-muted">
+									<p><strong class="text-text-primary">Əsas qovluq:</strong> Məhsullar</p>
+									<p><strong class="text-text-primary">Alt qovluqlar:</strong> Məhsul1, Məhsul2, Məhsul3</p>
+									<p><strong class="text-text-primary">Hər birində:</strong> images adlı qovluq, içində şəkillər (şəkil1.jpg, şəkil2.jpg ...)</p>
+								</div>
+							</div>
+							<div>
+								<p class="text-accent-green font-medium mb-2">✅ Nəticə:</p>
+								<div class="text-sm space-y-1 text-text-muted">
+									<p>• Məhsul1_picture.pdf, Məhsul2_picture.pdf və s. fayllar yaradılır</p>
+									<p>• Bütün şəkillər A4 formatında PDF-ə çevrilir</p>
+									<p>• Orijinal şəkillər silinir</p>
+									<p>• PDF sənədi və digər fayllar alt qovluğun kökünə köçürülür</p>
+									<p>• images qovluğu tamamilə silinir</p>
+								</div>
+							</div>
+						</div>
+					</div>
 				</div>
-			</div>
-			
-			<div class="p-6 border-t border-dark-border">
-				<button 
-					on:click={closeHelp}
-					class="btn-primary w-full"
-				>
-					Anladım
-				</button>
+				
+				<div>
+					<h3 class="text-lg font-semibold text-text-primary mb-3 flex items-center space-x-2">
+						<span>⚠️</span>
+						<span>Vacib Qeydlər</span>
+					</h3>
+					<div class="bg-amber-900/20 border border-amber-600/30 rounded-lg p-4">
+						<ul class="space-y-2 text-sm">
+							<li class="flex items-start space-x-2">
+								<span class="text-accent-green">✓</span>
+								<span><strong>Dəstəklənən şəkil formatları:</strong> JPG, PNG, BMP, GIF, TIFF, WEBP</span>
+							</li>
+							<li class="flex items-start space-x-2">
+								<span class="text-accent-green">✓</span>
+								<span><strong>PDF formatı:</strong> A4</span>
+							</li>
+							<li class="flex items-start space-x-2">
+								<span class="text-accent-green">✓</span>
+								<span><strong>Boş qovluqlar:</strong> avtomatik olaraq silinir</span>
+							</li>
+							<li class="flex items-start space-x-2">
+								<span class="text-accent-red">⚠</span>
+								<span class="text-accent-red font-medium"><strong>Proses geri qaytarıla bilməz!</strong> (Əməliyyatdan əvvəl ehtiyat nüsxə yaratmağınız tövsiyə olunur)</span>
+							</li>
+						</ul>
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>
