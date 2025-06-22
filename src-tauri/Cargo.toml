@@ -1,10 +1,10 @@
 [package]
 name = "nomino"
-version = "0.0.1"
-description = "A Tauri App for file management and processing"
-authors = ["you"]
-license = ""
-repository = ""
+version = "1.0.0"
+description = "Cross-platform desktop application for bulk folder renaming using Excel data with Azerbaijani alphabet support"
+authors = ["ClauseBreaker <https://github.com/ClauseBreaker>"]
+license = "MIT"
+repository = "https://github.com/ClauseBreaker/nomino"
 default-run = "nomino"
 edition = "2021"
 rust-version = "1.60"

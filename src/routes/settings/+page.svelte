@@ -285,15 +285,46 @@
 		</div>
 		
 		<div class="space-y-2 text-text-secondary">
-			<p><strong class="text-text-primary">Version:</strong> 0.0.1</p>
+			<p><strong class="text-text-primary">Version:</strong> 1.0.0</p>
 			<p><strong class="text-text-primary">Built with:</strong> Tauri + SvelteKit + Rust</p>
 			<p><strong class="text-text-primary">License:</strong> MIT</p>
+			<p><strong class="text-text-primary">Created:</strong> 2025</p>
 		</div>
 		
-		<div class="mt-4 pt-4 border-t border-dark-border">
+		<div class="mt-4 pt-4 border-t border-dark-border space-y-3">
 			<p class="text-text-muted text-sm">
-				Nomino is a modern file management application designed to help you organize and process your files efficiently.
+				Nomino is a modern file management application designed to help you organize and process your files efficiently with Excel integration and Azerbaijani alphabet support.
 			</p>
+			
+			<div class="flex items-center justify-between">
+				<div>
+					<p class="text-text-primary font-medium">Original Creator</p>
+					<p class="text-text-secondary text-sm">ClauseBreaker</p>
+				</div>
+				<a 
+					href="https://github.com/ClauseBreaker" 
+					target="_blank" 
+					rel="noopener noreferrer"
+					class="btn-secondary text-xs px-3 py-1 hover:bg-accent-cyan hover:text-dark-bg transition-colors"
+				>
+					GitHub Profile
+				</a>
+			</div>
+			
+			<div class="flex items-center justify-between">
+				<div>
+					<p class="text-text-primary font-medium">Source Code</p>
+					<p class="text-text-secondary text-sm">Open source on GitHub</p>
+				</div>
+				<a 
+					href="https://github.com/ClauseBreaker/nomino" 
+					target="_blank" 
+					rel="noopener noreferrer"
+					class="btn-secondary text-xs px-3 py-1 hover:bg-accent-orange hover:text-dark-bg transition-colors"
+				>
+					View Repository
+				</a>
+			</div>
 		</div>
 	</div>
 </div> 

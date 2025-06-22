@@ -10,7 +10,10 @@
     "tauri",
     "desktop-app"
   ],
-  "author": "Your Name",
+  "author": {
+    "name": "ClauseBreaker",
+    "url": "https://github.com/ClauseBreaker"
+  },
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -56,10 +59,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/nomino.git"
+    "url": "https://github.com/ClauseBreaker/nomino.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/nomino/issues"
+    "url": "https://github.com/ClauseBreaker/nomino/issues"
   },
-  "homepage": "https://github.com/yourusername/nomino#readme"
+  "homepage": "https://github.com/ClauseBreaker/nomino#readme"
 }

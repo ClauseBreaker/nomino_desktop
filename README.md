@@ -44,7 +44,7 @@ Nomino is a powerful desktop application built with Tauri and SvelteKit that ena
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/nomino.git
+   git clone https://github.com/ClauseBreaker/nomino.git
    cd nomino
    ```
 
@@ -191,7 +191,7 @@ The project follows these conventions:
 
 ### Getting Help
 
-- Check the [Issues](https://github.com/yourusername/nomino/issues) page
+- Check the [Issues](https://github.com/ClauseBreaker/nomino/issues) page
 - Create a new issue with detailed information
 - Include system information and error messages
 
@@ -208,4 +208,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
+**Originally created by [ClauseBreaker](https://github.com/ClauseBreaker) in 2025**  
 **Made with ❤️ for efficient folder management** 

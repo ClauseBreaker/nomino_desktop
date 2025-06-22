@@ -4,10 +4,14 @@
  * A cross-platform desktop application for bulk folder renaming operations
  * using Excel data with support for Azerbaijani alphabet sorting.
  * 
+ * Originally created by ClauseBreaker (https://github.com/ClauseBreaker) in 2025
+ * 
  * Built with:
  * - Tauri (Rust backend)
  * - SvelteKit (Frontend)
  * - Calamine (Excel processing)
+ * 
+ * License: MIT
  */
 
 // Prevents additional console window on Windows in release builds
