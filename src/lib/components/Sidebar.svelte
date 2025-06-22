@@ -8,7 +8,8 @@
 		Calendar,
 		Layers,
 		FolderOpen,
-		ImageIcon
+		ImageIcon,
+		ArrowRightLeft
 	} from 'lucide-svelte';
 	
 	export let currentPath = '';
@@ -56,6 +57,12 @@
 			icon: FileSpreadsheet, 
 			label: 'Excel Fayl Adı Dəyişdirici',
 			active: currentPath === '/excel-rename'
+		},
+		{ 
+			path: '/file-sorter', 
+			icon: ArrowRightLeft, 
+			label: 'Fayl Sıralayıcı',
+			active: currentPath === '/file-sorter'
 		}
 	];
 

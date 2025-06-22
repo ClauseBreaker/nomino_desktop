@@ -2919,4 +2919,239 @@ mod tests {
         assert!(test_files.contains(&"Çay"));
         assert!(test_files.contains(&"Şəkil1"));
     }
+}
+
+// ================================================================================================
+// FILE SORTER - Commands
+// ================================================================================================
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct FileSorterConfig {
+    pub files_folder: String,
+    pub folders_folder: String,
+    pub char_count: u32,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct FileSorterResult {
+    pub success: bool,
+    pub file_name: String,
+    pub target_folder: Option<String>,
+    pub message: String,
+}
+
+/// Sorts files into folders based on character matching
+#[tauri::command]
+pub async fn sort_files_by_folders(
+    window: Window,
+    config: FileSorterConfig,
+    state: State<'_, ProcessState>,
+) -> Result<Vec<FileSorterResult>, String> {
+    use std::time::Duration;
+    use tokio::time::sleep;
+    
+    // Reset process state
+    state.reset();
+    state.start();
+    
+    let files_path = Path::new(&config.files_folder);
+    let folders_path = Path::new(&config.folders_folder);
+    
+    if !files_path.exists() {
+        return Err("Fayllar qovluğu mövcud deyil".to_string());
+    }
+    
+    if !folders_path.exists() {
+        return Err("Hədəf qovluqlar qovluğu mövcud deyil".to_string());
+    }
+    
+    if config.char_count < 1 || config.char_count > 50 {
+        return Err("Simvol sayı 1-50 arasında olmalıdır".to_string());
+    }
+    
+    // Emit initial progress
+    emit_progress(&window, 0, 100, "Başlanılır", "Fayllar və qovluqlar yüklənir...");
+    sleep(Duration::from_millis(300)).await;
+    
+    // Get all files in the files folder
+    let mut files = Vec::new();
+    let entries = fs::read_dir(files_path)
+        .map_err(|e| format!("Fayllar qovluğu oxunması xətası: {}", e))?;
+    
+    for entry in entries {
+        if let Ok(entry) = entry {
+            let path = entry.path();
+            if path.is_file() {
+                files.push(path);
+            }
+        }
+    }
+    
+    if files.is_empty() {
+        return Err("Fayllar qovluğunda fayl tapılmadı".to_string());
+    }
+    
+    // Sort files using Azerbaijani alphabet
+    files.sort_by(|a, b| {
+        let a_name = a.file_name().unwrap_or_default().to_string_lossy();
+        let b_name = b.file_name().unwrap_or_default().to_string_lossy();
+        natural_sort_compare(&a_name, &b_name)
+    });
+    
+    // Get all folders in the folders directory
+    let mut folders = Vec::new();
+    let entries = fs::read_dir(folders_path)
+        .map_err(|e| format!("Qovluqlar qovluğu oxunması xətası: {}", e))?;
+    
+    for entry in entries {
+        if let Ok(entry) = entry {
+            let path = entry.path();
+            if path.is_dir() {
+                folders.push(path);
+            }
+        }
+    }
+    
+    if folders.is_empty() {
+        return Err("Hədəf qovluqlar qovluğunda qovluq tapılmadı".to_string());
+    }
+    
+    // Sort folders using Azerbaijani alphabet
+    folders.sort_by(|a, b| {
+        let a_name = a.file_name().unwrap_or_default().to_string_lossy();
+        let b_name = b.file_name().unwrap_or_default().to_string_lossy();
+        natural_sort_compare(&a_name, &b_name)
+    });
+    
+    let total_files = files.len();
+    emit_progress(&window, 10, 100, "Fayllar hazırlandı", 
+        &format!("{} fayl və {} qovluq tapıldı", total_files, folders.len()));
+    sleep(Duration::from_millis(400)).await;
+    
+    let mut results = Vec::new();
+    let char_count = config.char_count as usize;
+    
+    // Process each file
+    for (index, file_path) in files.iter().enumerate() {
+        // Check for stop signal
+        if state.should_stop() {
+            break;
+        }
+        
+        // Handle pause
+        while state.is_paused() && !state.should_stop() {
+            sleep(Duration::from_millis(50)).await;
+        }
+        if state.should_stop() {
+            break;
+        }
+        
+        let file_name = file_path.file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+        
+        // Calculate progress (10% to 95% for processing)
+        let progress = 10 + ((index + 1) as f32 / total_files as f32 * 85.0) as usize;
+        emit_progress(&window, progress, 100, "Fayllar sıralanır", 
+            &format!("İşlənir: {} ({}/{})", file_name, index + 1, total_files));
+        
+        // Get file prefix (first N characters)
+        let file_prefix = if file_name.len() >= char_count {
+            &file_name[..char_count]
+        } else {
+            &file_name
+        };
+        
+        // Find matching folder
+        let mut found_match = false;
+        for folder_path in &folders {
+            let folder_name = folder_path.file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            
+            let folder_prefix = if folder_name.len() >= char_count {
+                &folder_name[..char_count]
+            } else {
+                &folder_name
+            };
+            
+            // Compare prefixes (case-insensitive)
+            if file_prefix.to_lowercase() == folder_prefix.to_lowercase() {
+                // Move file to this folder
+                let dest_path = folder_path.join(&file_name);
+                
+                match fs::rename(file_path, &dest_path) {
+                    Ok(_) => {
+                        let message = format!("✅ Köçürüldü: {} → {}", file_name, folder_name);
+                        emit_process_result(&window, true, &message, &file_name, &folder_name);
+                        
+                        results.push(FileSorterResult {
+                            success: true,
+                            file_name: file_name.clone(),
+                            target_folder: Some(folder_name),
+                            message,
+                        });
+                        found_match = true;
+                        break;
+                    }
+                    Err(e) => {
+                        let message = format!("❌ Köçürmə xətası: {} → {} ({})", file_name, folder_name, e);
+                        emit_process_result(&window, false, &message, &file_name, "");
+                        
+                        results.push(FileSorterResult {
+                            success: false,
+                            file_name: file_name.clone(),
+                            target_folder: None,
+                            message,
+                        });
+                        found_match = true;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // If no match found
+        if !found_match {
+            let message = format!("⚠️ Uyğun qovluq tapılmadı: {} (ilk {} simvol: '{}')", 
+                file_name, char_count, file_prefix);
+            emit_process_result(&window, false, &message, &file_name, "");
+            
+            results.push(FileSorterResult {
+                success: false,
+                file_name: file_name.clone(),
+                target_folder: None,
+                message,
+            });
+        }
+        
+        // Add delay to make progress visible
+        sleep(Duration::from_millis(80)).await;
+    }
+    
+    // Final progress steps
+    emit_progress(&window, 96, 100, "Tamamlanır", "Nəticələr hazırlanır...");
+    sleep(Duration::from_millis(300)).await;
+    
+    emit_progress(&window, 98, 100, "Tamamlanır", "Son yoxlama...");
+    sleep(Duration::from_millis(200)).await;
+    
+    // Final summary
+    let moved_count = results.iter().filter(|r| r.success).count();
+    let not_matched_count = total_files - moved_count;
+    
+    emit_progress(&window, 100, 100, "Tamamlandı!", 
+        &format!("✅ {} köçürüldü, {} uyğun deyil", moved_count, not_matched_count));
+    
+    // Emit final summary
+    emit_process_result(&window, true, 
+        &format!("🎉 Fayl sıralama tamamlandı! {} fayldan {} fayl uğurla köçürüldü", 
+                total_files, moved_count), "", "");
+    
+    sleep(Duration::from_millis(500)).await;
+    
+    state.stop();
+    Ok(results)
 } 

@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import Sidebar from '$lib/components/Sidebar.svelte';
-	import { Minus, Square, X } from 'lucide-svelte';
+	import { Minus, Square, X, Github } from 'lucide-svelte';
 
 	let currentPath = '';
 	let isTauriApp = false;
@@ -119,10 +119,34 @@
 		
 		<!-- Footer -->
 		<footer class="border-t border-dark-border bg-dark-sidebar px-6 py-3">
-			<div class="flex items-center justify-center">
+			<div class="flex items-center justify-between">
 				<p class="text-text-muted text-xs">
-					© 2024 Nomino - File Management Tool. All rights reserved.
+					© 2025 Nomino - Bütün hüquqlar qorunur
 				</p>
+				
+				<div class="flex items-center space-x-4">
+					<p class="text-text-muted text-xs">
+						Yaradıcı: 
+						<a 
+							href="https://clausebreaker.github.io" 
+							target="_blank" 
+							rel="noopener noreferrer"
+							class="text-text-secondary hover:text-accent-orange transition-colors duration-200 font-medium"
+						>
+							ClauseBreaker
+						</a>
+					</p>
+					
+					<a 
+						href="https://github.com/ClauseBreaker" 
+						target="_blank" 
+						rel="noopener noreferrer"
+						class="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 text-text-muted hover:text-accent-orange hover:bg-accent-orange/10 hover:scale-105 border border-transparent hover:border-accent-orange"
+						title="GitHub Profile"
+					>
+						<Github size={16} />
+					</a>
+				</div>
 			</div>
 		</footer>
 	</div>

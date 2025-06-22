@@ -41,6 +41,7 @@ use commands::{
     copy_file_to_all_subfolders,
     change_pdf_dates,
     merge_pdf_files,
+    sort_files_by_folders,
     pause_process,
     resume_process,
     stop_process,
@@ -93,6 +94,9 @@ fn main() {
             
             // PDF merger operations
             merge_pdf_files,
+            
+            // File sorter operations
+            sort_files_by_folders,
             
             // Process control operations
             pause_process,
