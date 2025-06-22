@@ -14,7 +14,7 @@
 		CheckCircle,
 		AlertCircle,
 		ArrowRight,
-		Settings,
+		Cog,
 		HelpCircle,
 		X,
 		Square
@@ -390,7 +390,7 @@
 		<!-- Destination & Excel -->
 		<div class="card">
 			<h3 class="text-lg font-semibold text-text-primary mb-4 flex items-center space-x-2">
-				<Settings size={20} class="text-accent-orange" />
+				<Cog size={20} class="text-accent-orange" />
 				<span>Parametrlər</span>
 			</h3>
 			

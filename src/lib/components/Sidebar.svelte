@@ -7,7 +7,6 @@
 		Copy,
 		Calendar,
 		Layers,
-		Settings,
 		FolderOpen,
 		ImageIcon
 	} from 'lucide-svelte';
@@ -57,12 +56,6 @@
 			icon: FileSpreadsheet, 
 			label: 'Excel Fayl Adı Dəyişdirici',
 			active: currentPath === '/excel-rename'
-		},
-		{ 
-			path: '/settings', 
-			icon: Settings, 
-			label: 'Settings',
-			active: currentPath === '/settings'
 		}
 	];
 
