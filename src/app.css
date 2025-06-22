@@ -1,0 +1,76 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Local Nunito Fonts */
+@font-face {
+  font-family: 'Nunito';
+  src: url('./lib/fonts/Nunito-VariableFont_wght.ttf') format('truetype');
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Nunito';
+  src: url('./lib/fonts/Nunito-Italic-VariableFont_wght.ttf') format('truetype');
+  font-weight: 200 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #232334;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #FF6B35;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ff8c5a;
+}
+
+/* Custom input styles */
+.input-field {
+  @apply bg-dark-card border border-dark-border text-text-primary px-4 py-2 rounded-button focus:outline-none focus:border-accent-orange transition-colors;
+}
+
+.input-field::placeholder {
+  @apply text-text-muted;
+}
+
+/* Custom button styles */
+.btn-primary {
+  @apply bg-accent-orange hover:bg-orange-600 text-white font-medium px-6 py-2 rounded-button transition-all duration-200 transform hover:scale-105;
+}
+
+.btn-secondary {
+  @apply bg-dark-card hover:bg-gray-700 text-text-primary font-medium px-6 py-2 rounded-button border border-dark-border transition-all duration-200;
+}
+
+/* Card styles */
+.card {
+  @apply bg-dark-card rounded-card p-6 shadow-inner-soft border border-dark-border;
+}
+
+/* Glass effect */
+.glass {
+  backdrop-filter: blur(10px);
+  background: rgba(35, 35, 52, 0.8);
+}
+
+/* Tauri window dragging */
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+} 

@@ -1,0 +1,30 @@
+[package]
+name = "nomino"
+version = "0.0.1"
+description = "A Tauri App for file management and processing"
+authors = ["you"]
+license = ""
+repository = ""
+default-run = "nomino"
+edition = "2021"
+rust-version = "1.60"
+
+[build-dependencies]
+tauri-build = { version = "1.5.0", features = ["codegen"] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+tauri = { version = "1.5.0", features = [ "window-close", "window-start-dragging", "window-unmaximize", "window-minimize", "window-hide", "window-show", "window-unminimize", "window-maximize", "fs-all", "dialog-all", "path-all", "shell-open"] }
+tokio = { version = "1.0", features = ["full"] }
+uuid = { version = "1.0", features = ["v4"] }
+calamine = "0.22"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.48", features = ["Win32_System_SystemServices", "Win32_UI_Shell"] }
+
+[features]
+# this feature is used for production builds or when `devPath` points to the filesystem and the built-in dev server is disabled.
+# If you use cargo directly instead of tauri's cli you can use this feature flag to switch between tauri's `dev` and `build` modes.
+# DO NOT REMOVE!!
+custom-protocol = [ "tauri/custom-protocol" ] 

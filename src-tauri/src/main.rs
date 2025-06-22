@@ -1,0 +1,80 @@
+/*!
+ * Nomino - Folder Renaming Application
+ * 
+ * A cross-platform desktop application for bulk folder renaming operations
+ * using Excel data with support for Azerbaijani alphabet sorting.
+ * 
+ * Built with:
+ * - Tauri (Rust backend)
+ * - SvelteKit (Frontend)
+ * - Calamine (Excel processing)
+ */
+
+// Prevents additional console window on Windows in release builds
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+// Import application modules
+mod commands;
+
+// Import command functions
+use commands::{
+    greet,
+    get_files_in_directory,
+    get_folders_in_directory, 
+    get_folders_with_sorting,
+    read_excel_column,
+    rename_files,
+    rename_folders,
+    rename_folders_from_excel,
+    create_pdf
+};
+
+/**
+ * Application entry point
+ * 
+ * Initializes the Tauri application with all available commands
+ * and starts the main event loop.
+ */
+fn main() {
+    // Configure and build the Tauri application
+    let app = tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![
+            // Basic utilities
+            greet,
+            
+            // File system operations
+            get_files_in_directory,
+            get_folders_in_directory,
+            get_folders_with_sorting,
+            
+            // Excel integration
+            read_excel_column,
+            
+            // Renaming operations
+            rename_files,
+            rename_folders,
+            rename_folders_from_excel,
+            
+            // Document operations
+            create_pdf
+        ])
+        .build(tauri::generate_context!());
+
+    // Handle application startup errors
+    match app {
+        Ok(app) => {
+            // Run the application
+            app.run(|_app_handle, event| match event {
+                tauri::RunEvent::ExitRequested { api, .. } => {
+                    // Prevent the default close behavior and hide the app
+                    api.prevent_exit();
+                }
+                _ => {}
+            });
+        }
+        Err(error) => {
+            eprintln!("Failed to start application: {}", error);
+            std::process::exit(1);
+        }
+    }
+} 
