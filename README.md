@@ -5,7 +5,7 @@
 ![Nomino Logo](static/logo_new.png)
 
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/ClauseBreaker/nomino_desktop)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Custom-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/ClauseBreaker/nomino_desktop)
 [![Tauri](https://img.shields.io/badge/Tauri-1.5.0-orange.svg)](https://tauri.app/)
 [![Svelte](https://img.shields.io/badge/Svelte-4.2.7-red.svg)](https://svelte.dev/)
@@ -271,7 +271,14 @@ Please use our [issue tracker](https://github.com/ClauseBreaker/nomino_desktop/i
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under a Custom License that allows free use, modification, and distribution with attribution requirements - see the [LICENSE](LICENSE) file for details.
+
+**Key Requirements:**
+- You may use, modify, and distribute this software freely
+- The footer must prominently display: "Created by ClauseBreaker"
+- The footer must include links to GitHub and website
+- No warranty or liability from the creator
+- Governed by Azerbaijan and international copyright laws
 
 ## 👨‍💻 Author
 
@@ -313,7 +320,7 @@ Faydalı hesab edirsinizsə [⭐ Bu repositoriyanı ulduzlayın](https://github.
 ![Nomino Loqosu](static/logo_new.png)
 
 [![Versiya](https://img.shields.io/badge/versiya-1.0.0-blue.svg)](https://github.com/ClauseBreaker/nomino_desktop)
-[![Lisenziya](https://img.shields.io/badge/lisenziya-MIT-green.svg)](LICENSE)
+[![Lisenziya](https://img.shields.io/badge/lisenziya-Xüsusi-green.svg)](LICENSE)
 [![Platforma](https://img.shields.io/badge/platforma-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/ClauseBreaker/nomino_desktop)
 [![Tauri](https://img.shields.io/badge/Tauri-1.5.0-orange.svg)](https://tauri.app/)
 [![Svelte](https://img.shields.io/badge/Svelte-4.2.7-red.svg)](https://svelte.dev/)
@@ -579,7 +586,14 @@ Lütfən aşağıdakılarla [problem izləyicimizə](https://github.com/ClauseBr
 
 ## 📄 Lisenziya
 
-Bu layihə MIT Lisenziyası altında lisenziyalıdır - təfərrüatlar üçün [LICENSE](LICENSE) faylına baxın.
+Bu layihə müəlliflik tələbləri ilə sərbəst istifadə, dəyişdirmə və yayıma icazə verən Xüsusi Lisenziya altındadır - təfərrüatlar üçün [LICENSE](LICENSE) faylına baxın.
+
+**Əsas Tələblər:**
+- Bu proqramı sərbəst istifadə, dəyişdirmə və yaya bilərsiniz
+- Footerdə görünən şəkildə yazılmalıdır: "ClauseBreaker tərəfindən yaradılıb"
+- Footerdə GitHub və veb sayt linklərini daxil etməlisiniz
+- Yaradıcıdan heç bir zəmanət və ya məsuliyyət yoxdur
+- Azərbaycan və beynəlxalq müəlliflik hüququ qanunları ilə idarə olunur
 
 ## 👨‍💻 Müəllif
 

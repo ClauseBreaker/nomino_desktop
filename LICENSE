@@ -1,6 +1,9 @@
-MIT License
+NOMINO SOFTWARE LICENSE
 
 Copyright (c) 2025 ClauseBreaker (https://github.com/ClauseBreaker)
+
+ENGLISH VERSION:
+================
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -9,15 +12,86 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software and any modifications thereof.
-When distributing or modifying this software, you must retain the original
-author attribution: "Originally created by ClauseBreaker (https://github.com/ClauseBreaker)"
+1. ATTRIBUTION REQUIREMENT:
+   The footer of any application, website, or software that uses, modifies, or
+   distributes this Software must prominently display the following attribution:
+   
+   "Created by ClauseBreaker"
+   
+   And must include these two links in a visible manner:
+   - GitHub: https://github.com/ClauseBreaker
+   - Website: https://clausebreaker.github.io
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE. 
+2. COPYRIGHT NOTICE:
+   The above copyright notice and this permission notice shall be included in all
+   copies or substantial portions of the Software.
+
+3. DISCLAIMER OF LIABILITY:
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHOR OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+
+4. LEGAL JURISDICTION:
+   This license shall be governed by and construed in accordance with the laws
+   of the Republic of Azerbaijan and applicable international copyright laws.
+   Any disputes arising under this license shall be subject to the exclusive
+   jurisdiction of the courts of the Republic of Azerbaijan.
+
+5. NO RESPONSIBILITY:
+   The creator (ClauseBreaker) assumes no responsibility for any damage, loss,
+   or consequences arising from the use of this Software. Users assume all
+   risks associated with the use of this Software.
+
+AZƏRBAYCAN DİLİ VERSİYASI:
+===========================
+
+Bu proqram təminatının və əlaqədar sənədlərin ("Proqram") bir nüsxəsini əldə edən 
+hər hansı şəxsə, aşağıdakı şərtlərə əməl etməklə, Proqramla məhdudiyyətsiz işləmək 
+hüququ ödənişsiz verilir:
+
+1. MÜƏLLIFLIK TƏLƏBI:
+   Bu Proqramı istifadə edən, dəyişdirən və ya yayan hər hansı tətbiq, veb sayt və ya
+   proqramın footerində aşağıdakı müəlliflik qeydi görünən şəkildə göstərilməlidir:
+   
+   "ClauseBreaker tərəfindən yaradılıb"
+   
+   Və bu iki link görünən şəkildə daxil edilməlidir:
+   - GitHub: https://github.com/ClauseBreaker
+   - Veb sayt: https://clausebreaker.github.io
+
+2. MÜƏLLİFLİK HÜQUQu QEYDI:
+   Yuxarıdakı müəlliflik hüququ qeydi və bu icazə bildirişi Proqramın bütün nüsxələrində
+   və ya əhəmiyyətli hissələrində qalmalıdır.
+
+3. MƏSULİYYƏTDƏN İMTİNA:
+   PROQRAM "OLDUĞU KİMİ" TƏQDİM EDİLİR, AÇIQ VƏ YA NƏZƏRDƏ TUTULAN HEÇ BİR
+   ZƏMANƏTSİZ, O CÜMLƏDƏN TİCARİ MƏQSƏDLƏR ÜÇÜN YARAŞIQLILIK, MÜƏYYƏn MƏQSƏD
+   ÜÇÜN UYĞUNLUQ VƏ HÜQUQ POZUNTUSUNUN OLMADIĞI ZƏMANƏTLƏRİ DAXİL OLMAQLA.
+   HEÇ BİR HALDA MÜƏLLIF VƏ YA MÜƏLLİFLİK HÜQUQU SAHİBLƏRİ PROQRAMDAN VƏ YA
+   PROQRAMLA ƏLAQƏDAR İSTİFADƏDƏN YARANAN HEÇ BİR İDDİA, ZƏRƏR VƏ YA DİGƏR
+   MƏSULİYYƏTƏ GÖRƏ CAVABDEH OLMAYACAQLAR.
+
+4. HÜQUQİ YURİSDİKSİYA:
+   Bu lisenziya Azərbaycan Respublikasının qanunları və tətbiq olunan beynəlxalq
+   müəlliflik hüququ qanunları əsasında idarə olunur və şərh edilir. Bu lisenziya
+   altında yaranan hər hansı mübahisələr Azərbaycan Respublikası məhkəmələrinin
+   eksklüziv yurisdiksiyasına tabedir.
+
+5. MƏSULİYYƏT DAŞIMAMAQ:
+   Yaradıcı (ClauseBreaker) bu Proqramın istifadəsindən yaranan hər hansı zərər,
+   itki və ya nəticələrə görə heç bir məsuliyyət daşımır. İstifadəçilər bu
+   Proqramın istifadəsi ilə bağlı bütün riskləri öz üzərlərinə götürürlər.
+
+================================================================================
+
+For questions about this license, please contact:
+GitHub: https://github.com/ClauseBreaker
+Website: https://clausebreaker.github.io
+
+Lisenziya ilə bağlı suallar üçün əlaqə:
+GitHub: https://github.com/ClauseBreaker
+Veb sayt: https://clausebreaker.github.io 

@@ -14,7 +14,7 @@
     "name": "ClauseBreaker",
     "url": "https://github.com/ClauseBreaker"
   },
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "private": true,
   "type": "module",
   "main": "src-tauri/src/main.rs",
