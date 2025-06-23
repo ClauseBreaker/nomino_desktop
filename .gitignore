@@ -52,3 +52,6 @@ out/
 # Temporary files
 *.tmp
 *.temp
+
+# Executable files
+*.exe
