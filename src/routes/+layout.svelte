@@ -120,9 +120,14 @@
 		<!-- Footer -->
 		<footer class="border-t border-dark-border bg-dark-sidebar px-6 py-3">
 			<div class="flex items-center justify-between">
-				<p class="text-text-muted text-xs">
-					© 2025 Nomino - Bütün hüquqlar qorunur
-				</p>
+				<div class="flex items-center space-x-4">
+					<p class="text-text-muted text-xs">
+						© 2025 Nomino - Bütün hüquqlar qorunur
+					</p>
+					<span class="text-accent-orange text-xs font-medium bg-accent-orange/10 px-2 py-1 rounded">
+						v1.1.0
+					</span>
+				</div>
 				
 				<div class="flex items-center space-x-4">
 					<p class="text-text-muted text-xs">

@@ -4,7 +4,7 @@
 
 ![Nomino Logo](static/logo_new.png)
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/ClauseBreaker/nomino_desktop)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/ClauseBreaker/nomino_desktop)
 [![License](https://img.shields.io/badge/license-Custom-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/ClauseBreaker/nomino_desktop)
 [![Tauri](https://img.shields.io/badge/Tauri-1.5.0-orange.svg)](https://tauri.app/)
@@ -23,10 +23,11 @@
 - **File Renamer** - Bulk rename files using Excel data with advanced filtering
 - **PDF Creator** - Convert images to PDF files automatically
 - **File Copier** - Copy files to multiple destinations based on Excel lists
-- **PDF Date Changer** - Modify creation dates in PDF files
+- **PDF Date Changer** - Modify creation dates in PDF files (✨ Enhanced positioning in v1.1.0)
 - **PDF Merger** - Combine multiple PDF files into one
 - **Excel File Renamer** - Advanced file renaming with numeric/text patterns
 - **File Sorter** - Sort files into folders based on character matching
+- **📁 File Copy to Subfolders** - ✨ NEW: Copy a single file to all subfolders recursively
 
 ### 🚀 **Key Capabilities**
 - **Azerbaijani Alphabet Support** - Native sorting and processing
@@ -319,7 +320,7 @@ Faydalı hesab edirsinizsə [⭐ Bu repositoriyanı ulduzlayın](https://github.
 
 ![Nomino Loqosu](static/logo_new.png)
 
-[![Versiya](https://img.shields.io/badge/versiya-1.0.0-blue.svg)](https://github.com/ClauseBreaker/nomino_desktop)
+[![Versiya](https://img.shields.io/badge/versiya-1.1.0-blue.svg)](https://github.com/ClauseBreaker/nomino_desktop)
 [![Lisenziya](https://img.shields.io/badge/lisenziya-Xüsusi-green.svg)](LICENSE)
 [![Platforma](https://img.shields.io/badge/platforma-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/ClauseBreaker/nomino_desktop)
 [![Tauri](https://img.shields.io/badge/Tauri-1.5.0-orange.svg)](https://tauri.app/)
@@ -338,10 +339,11 @@ Faydalı hesab edirsinizsə [⭐ Bu repositoriyanı ulduzlayın](https://github.
 - **Fayl Adlandırıcı** - Təkmil filtrlə Excel məlumatlarından istifadə edərək faylları toplu şəkildə yenidən adlandırın
 - **PDF Yaradıcısı** - Şəkilləri avtomatik olaraq PDF fayllarına çevirin
 - **Fayl Kopyalayıcısı** - Excel siyahılarına əsasən faylları çoxlu təyinatlara kopyalayın
-- **PDF Tarix Dəyişdiricisi** - PDF fayllarında yaradılış tarixlərini dəyişdirin
+- **PDF Tarix Dəyişdiricisi** - PDF fayllarında yaradılış tarixlərini dəyişdirin (✨ v1.1.0-da təkmilləşdirilmiş mövqeləndirmə)
 - **PDF Birləşdiricisi** - Bir neçə PDF faylını birində birləşdirin
 - **Excel Fayl Adlandırıcısı** - Rəqəm/mətn nümunələri ilə təkmil fayl adlandırması
 - **Fayl Sıralayıcısı** - Simvol uyğunluğuna əsasən faylları qovluqlara sıralayın
+- **📁 Fayl Kopyalama** - ✨ YENİ: Tək faylı bütün alt qovluqlara rekursiv kopyalayın
 
 ### 🚀 **Əsas İmkanlar**
 - **Azərbaycan Əlifbası Dəstəyi** - Yerli sıralama və emal
